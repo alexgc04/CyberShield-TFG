@@ -9,4 +9,10 @@ Este proyecto de **Fin de Grado** consiste en el despliegue de una infraestructu
 * **Atacante:** Kali Linux.
 * **Víctima:** Windows, Linux...
 
+## Puntos Clave del Proyecto
+1. **Infraestructura Wazuh:** Implementación en Proxmox y despliegue de agentes.
+2. **Bloque Ofensivo:** Simulación de ataques.
+3. **App Cybershield:** App para probar sistemas con distintos ataques comprobando las respuestas con Wazuh.
+4. **Documentación:** Manuales técnicos y cumplimiento normativo.
+
 ## 🛡️ Ataques Documentados
