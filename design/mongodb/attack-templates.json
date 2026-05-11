@@ -1,0 +1,90 @@
+[
+    {
+        "name": "MAC Flooding",
+        "module": "network-audit",
+        "mitre_id": "T1557",
+        "command_base": "sudo macof -i {{interface}} -n {{count}}",
+        "params": {
+            "interface": "eth0",
+            "count": "5000"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557'",
+        "status": "validated",
+        "validated_on": "2026-05-08",
+        "notes": "tun0 (VPN L3) filtra tráfico L2. Validado con éxito sobre eth0 (bridge VirtualBox). Tabla CAM saturada confirmada."
+    },
+    {
+        "name": "ARP Spoofing",
+        "module": "network-audit",
+        "mitre_id": "T1557.002",
+        "command_base": "sudo bettercap -iface {{interface}} -eval \"set arp.spoof.targets {{target}}; arp.spoof on\"",
+        "params": {
+            "interface": "tun0",
+            "target": "10.10.10.X"
+        },
+        "status": "pending"
+    },
+    {
+        "name": "Nmap Host Discovery",
+        "module": "vulnerability-scanning",
+        "mitre_id": "T1046",
+        "command_base": "sudo nmap -sn {{target_range}} -oX /tmp/nmap_discovery_{{timestamp}}.xml",
+        "params": {
+            "target_range": "10.10.10.0/24",
+            "timestamp": "{{auto}}"
+        },
+        "status": "pending",
+        "description": "Descubrimiento de hosts activos en la red objetivo mediante ping sweep"
+    },
+    {
+        "name": "Nmap TCP SYN Scan",
+        "module": "vulnerability-scanning",
+        "mitre_id": "T1046",
+        "command_base": "sudo nmap -sS -sV -O -p {{ports}} {{target}} -oX /tmp/nmap_syn_{{timestamp}}.xml",
+        "params": {
+            "target": "10.10.10.X",
+            "ports": "1-1024",
+            "timestamp": "{{auto}}"
+        },
+        "status": "pending",
+        "description": "Escaneo SYN sigiloso con detección de versiones y OS fingerprinting"
+    },
+    {
+        "name": "Nmap Full Port Scan",
+        "module": "vulnerability-scanning",
+        "mitre_id": "T1046",
+        "command_base": "sudo nmap -sS -p- -T4 --min-rate={{rate}} {{target}} -oX /tmp/nmap_full_{{timestamp}}.xml",
+        "params": {
+            "target": "10.10.10.X",
+            "rate": "1000",
+            "timestamp": "{{auto}}"
+        },
+        "status": "pending",
+        "description": "Escaneo completo de los 65535 puertos TCP"
+    },
+    {
+        "name": "Nmap Vulnerability Scripts",
+        "module": "vulnerability-scanning",
+        "mitre_id": "T1046",
+        "command_base": "sudo nmap -sV --script=vuln {{target}} -oX /tmp/nmap_vuln_{{timestamp}}.xml",
+        "params": {
+            "target": "10.10.10.X",
+            "timestamp": "{{auto}}"
+        },
+        "status": "pending",
+        "description": "Escaneo con scripts NSE de detección de vulnerabilidades conocidas"
+    },
+    {
+        "name": "Nmap UDP Scan",
+        "module": "vulnerability-scanning",
+        "mitre_id": "T1046",
+        "command_base": "sudo nmap -sU --top-ports={{top}} {{target}} -oX /tmp/nmap_udp_{{timestamp}}.xml",
+        "params": {
+            "target": "10.10.10.X",
+            "top": "100",
+            "timestamp": "{{auto}}"
+        },
+        "status": "pending",
+        "description": "Escaneo de los puertos UDP más comunes"
+    }
+]
