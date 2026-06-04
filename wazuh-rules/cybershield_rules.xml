@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================
+     CyberShield – Reglas personalizadas para Wazuh
+     IDs 100500-100523  ·  Grupo: cybershield,attack,
+     ============================================================ -->
+
+<group name="cybershield,attack,">
+
+  <!-- ======== Regla base: cualquier SEC_VIOLATION ======== -->
+  <rule id="100500" level="10">
+    <decoded_as>cybershield</decoded_as>
+    <match>SEC_VIOLATION</match>
+    <description>CyberShield: Violación de seguridad detectada - $(attack_type) en $(interface)</description>
+  </rule>
+
+  <!-- 1 · Nmap Host Discovery -->
+  <rule id="100501" level="5">
+    <if_sid>100500</if_sid>
+    <match>Nmap Host Discovery</match>
+    <description>CyberShield: Nmap Host Discovery detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- 2 · MAC Flooding -->
+  <rule id="100502" level="12">
+    <if_sid>100500</if_sid>
+    <match>MAC Flooding</match>
+    <description>CyberShield: MAC Flooding detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1557</id>
+    </mitre>
+  </rule>
+
+  <!-- 3 · Switch Port Stealing -->
+  <rule id="100503" level="12">
+    <if_sid>100500</if_sid>
+    <match>Switch Port Stealing</match>
+    <description>CyberShield: Switch Port Stealing detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1557</id>
+    </mitre>
+  </rule>
+
+  <!-- 4 · SPAN / Port Mirror -->
+  <rule id="100504" level="8">
+    <if_sid>100500</if_sid>
+    <match>SPAN / Port Mirror</match>
+    <description>CyberShield: SPAN / Port Mirror detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+
+  <!-- 5 · Covert Channel / Tunneling -->
+  <rule id="100505" level="14">
+    <if_sid>100500</if_sid>
+    <match>Covert Channel / Tunneling</match>
+    <description>CyberShield: Covert Channel / Tunneling detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1572</id>
+    </mitre>
+  </rule>
+
+  <!-- 6 · Deauthentication -->
+  <rule id="100506" level="12">
+    <if_sid>100500</if_sid>
+    <match>Deauthentication</match>
+    <description>CyberShield: Deauthentication detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+  </rule>
+
+  <!-- 7 · Fake Authentication -->
+  <rule id="100507" level="10">
+    <if_sid>100500</if_sid>
+    <match>Fake Authentication</match>
+    <description>CyberShield: Fake Authentication detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1557</id>
+    </mitre>
+  </rule>
+
+  <!-- 8 · CTS Frame Attack -->
+  <rule id="100508" level="12">
+    <if_sid>100500</if_sid>
+    <match>CTS Frame Attack</match>
+    <description>CyberShield: CTS Frame Attack detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+  </rule>
+
+  <!-- 9 · Beacon Flood -->
+  <rule id="100509" level="10">
+    <if_sid>100500</if_sid>
+    <match>Beacon Flood</match>
+    <description>CyberShield: Beacon Flood detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1498.001</id>
+    </mitre>
+  </rule>
+
+  <!-- 10 · Dissociation Amok -->
+  <rule id="100510" level="12">
+    <if_sid>100500</if_sid>
+    <match>Dissociation Amok</match>
+    <description>CyberShield: Dissociation Amok detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1498</id>
+    </mitre>
+  </rule>
+
+  <!-- 11 · Michael Shutdown -->
+  <rule id="100511" level="14">
+    <if_sid>100500</if_sid>
+    <match>Michael Shutdown</match>
+    <description>CyberShield: Michael Shutdown detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1499</id>
+    </mitre>
+  </rule>
+
+  <!-- 12 · Handshake Capture -->
+  <rule id="100512" level="10">
+    <if_sid>100500</if_sid>
+    <match>Handshake Capture</match>
+    <description>CyberShield: Handshake Capture detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+
+  <!-- 13 · Brute Force / Dictionary -->
+  <rule id="100513" level="12">
+    <if_sid>100500</if_sid>
+    <match>Brute Force / Dictionary</match>
+    <description>CyberShield: Brute Force / Dictionary detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <!-- 14 · Evil Twin -->
+  <rule id="100514" level="14">
+    <if_sid>100500</if_sid>
+    <match>Evil Twin</match>
+    <description>CyberShield: Evil Twin detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1557.002</id>
+    </mitre>
+  </rule>
+
+  <!-- 15 · Clientless PMKID -->
+  <rule id="100515" level="12">
+    <if_sid>100500</if_sid>
+    <match>Clientless PMKID</match>
+    <description>CyberShield: Clientless PMKID detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1110.002</id>
+    </mitre>
+  </rule>
+
+  <!-- 16 · Hidden SSID -->
+  <rule id="100516" level="5">
+    <if_sid>100500</if_sid>
+    <match>Hidden SSID</match>
+    <description>CyberShield: Hidden SSID detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- 17 · WPS Attack -->
+  <rule id="100517" level="12">
+    <if_sid>100500</if_sid>
+    <match>WPS Attack</match>
+    <description>CyberShield: WPS Attack detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <!-- 18 · WEP Attack -->
+  <rule id="100518" level="14">
+    <if_sid>100500</if_sid>
+    <match>WEP Attack</match>
+    <description>CyberShield: WEP Attack detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+  </rule>
+
+  <!-- 19 · Scapy Intro -->
+  <rule id="100519" level="3">
+    <if_sid>100500</if_sid>
+    <match>Scapy Intro</match>
+    <description>CyberShield: Scapy Intro detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- 20 · Scapy Layers -->
+  <rule id="100520" level="3">
+    <if_sid>100500</if_sid>
+    <match>Scapy Layers</match>
+    <description>CyberShield: Scapy Layers detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- 21 · Scapy Capture -->
+  <rule id="100521" level="8">
+    <if_sid>100500</if_sid>
+    <match>Scapy Capture</match>
+    <description>CyberShield: Scapy Capture detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+
+  <!-- 22 · Scapy Scan -->
+  <rule id="100522" level="10">
+    <if_sid>100500</if_sid>
+    <match>Scapy Scan</match>
+    <description>CyberShield: Scapy Scan detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+  <!-- 23 · Automated Scan -->
+  <rule id="100523" level="10">
+    <if_sid>100500</if_sid>
+    <match>Automated Scan</match>
+    <description>CyberShield: Automated Scan detectado - $(attack_type) en $(interface)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+  </rule>
+
+</group>

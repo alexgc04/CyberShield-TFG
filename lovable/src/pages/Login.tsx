@@ -34,6 +34,11 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
+      {/* Background Image (Hacker) */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-20 bg-fixed scale-110 animate-slow-push-in" 
+        style={{ backgroundImage: "url('/images/hacker.png')" }} 
+      />
       {/* Scanline overlay */}
       <div className="absolute inset-0 scanline pointer-events-none z-10" />
       

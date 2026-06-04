@@ -1,15 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Shield, Bug, Flame, Clock, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-
-const threatData = Array.from({ length: 30 }, (_, i) => ({
-  day: `${i + 1}`,
-  amenazas: Math.floor(Math.random() * 40) + 5,
-  bloqueadas: Math.floor(Math.random() * 35) + 3,
-}));
 
 const recentActivity = [
   { id: 1, type: "scan", target: "192.168.1.0/24", status: "Completado", severity: "info", time: "Hace 2h" },
@@ -19,12 +11,7 @@ const recentActivity = [
   { id: 5, type: "scan", target: "api.empresa.com", status: "Completado", severity: "info", time: "Hace 6h" },
 ];
 
-const isoCompliance = [
-  { standard: "ISO 27001", progress: 78, status: "En progreso" },
-  { standard: "ISO 27002", progress: 65, status: "En progreso" },
-  { standard: "ISO 27005", progress: 42, status: "Parcial" },
-  { standard: "NIST CSF", progress: 85, status: "Avanzado" },
-];
+
 
 const severityColor: Record<string, string> = {
   critical: "bg-destructive text-destructive-foreground",
@@ -35,7 +22,9 @@ const severityColor: Record<string, string> = {
 
 const Dashboard = () => {
   return (
-    <div className="space-y-6">
+    <div className="relative">
+      <div className="fixed inset-0 bg-cover bg-center opacity-20 pointer-events-none z-0" style={{ backgroundImage: "url('/images/servers.png')" }} />
+      <div className="space-y-6 relative z-10">
       <div>
         <h1 className="text-2xl font-bold font-mono text-primary text-glow-green tracking-wider">
           PANEL DE CONTROL
@@ -114,59 +103,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Threat Trend Chart */}
-        <Card className="border-primary/10 bg-card/60 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider">
-              Amenazas Detectadas — Últimos 30 Días
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={threatData}>
-                <defs>
-                  <linearGradient id="greenGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(120, 100%, 50%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(120, 100%, 50%)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="cyanGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(187, 100%, 45%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(187, 100%, 45%)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(120, 40%, 15%)" />
-                <XAxis dataKey="day" tick={{ fill: 'hsl(120, 20%, 55%)', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: 'hsl(120, 40%, 15%)' }} />
-                <YAxis tick={{ fill: 'hsl(120, 20%, 55%)', fontSize: 10, fontFamily: 'JetBrains Mono' }} axisLine={{ stroke: 'hsl(120, 40%, 15%)' }} />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(0, 0%, 7%)', border: '1px solid hsl(120, 40%, 15%)', borderRadius: '8px', fontFamily: 'JetBrains Mono', fontSize: 11 }} />
-                <Area type="monotone" dataKey="amenazas" stroke="hsl(0, 100%, 50%)" fill="url(#greenGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="bloqueadas" stroke="hsl(187, 100%, 45%)" fill="url(#cyanGrad)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
 
-        {/* ISO Compliance */}
-        <Card className="border-primary/10 bg-card/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider">
-              Cumplimiento de Estándares
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isoCompliance.map((item) => (
-              <div key={item.standard} className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-mono text-foreground">{item.standard}</span>
-                  <span className="text-xs font-mono text-primary">{item.progress}%</span>
-                </div>
-                <Progress value={item.progress} className="h-2 bg-muted" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Recent Activity Table */}
       <Card className="border-primary/10 bg-card/60">
@@ -214,6 +151,7 @@ const Dashboard = () => {
           </Table>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };

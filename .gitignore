@@ -1,0 +1,13 @@
+# Dependencias
+node_modules/
+
+# Informes generados (se gestionan solo desde la web)
+docs/reports/*.md
+docs/reports/*.pdf
+docs/reports/.md-to-pdf-config.json
+lovable/public/reports/*.pdf
+
+# Temporales
+*.log
+.DS_Store
+Thumbs.db

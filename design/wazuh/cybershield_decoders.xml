@@ -1,0 +1,26 @@
+<!-- ============================================= -->
+<!-- CyberShield Custom Decoders for Wazuh         -->
+<!-- Proyecto TFG - Detección de ataques de red    -->
+<!--                                               -->
+<!-- DEPLOYMENT: Copiar a /var/ossec/etc/decoders/  -->
+<!-- en el WAZUH MANAGER (no en el agente)          -->
+<!-- ============================================= -->
+
+<!-- Decoder padre: identifica logs del tag "CyberShield" en syslog -->
+<decoder name="cybershield">
+  <program_name>CyberShield</program_name>
+</decoder>
+
+<!-- Decoder hijo: extrae campos completos de SEC_VIOLATION con MITRE -->
+<decoder name="cybershield-sec-violation">
+  <parent>cybershield</parent>
+  <regex>SEC_VIOLATION: (\S+ \S+) detected on (\S+ \d+) - Interface (\S+) - (\d+) packets sent - (.+) - MITRE:(\S+)</regex>
+  <order>attack_type, port_info, interface, packet_count, status, mitre_id</order>
+</decoder>
+
+<!-- Decoder alternativo sin campo MITRE (compatibilidad) -->
+<decoder name="cybershield-sec-violation-simple">
+  <parent>cybershield</parent>
+  <regex>SEC_VIOLATION: (\S+ \S+) detected on (\S+ \d+) - Interface (\S+) - (\d+) packets sent</regex>
+  <order>attack_type, port_info, interface, packet_count</order>
+</decoder>

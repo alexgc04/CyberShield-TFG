@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberShield Pro — Plataforma de Ciberseguridad con IA</title>
+  <meta name="description" content="CyberShield Pro: Sistema integral de auditoría ofensiva y defensiva potenciado por inteligencia artificial. Trabajo de Fin de Grado.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <a href="#hero" class="nav-logo">
+    <div class="shield">🛡️</div>
+    <span>CYBERSHIELD</span>
+  </a>
+  <div class="nav-links">
+    <a href="#about">About</a>
+    <a href="#offensive">Ofensivo</a>
+    <a href="#defensive">Defensivo</a>
+    <a href="#architecture">Arquitectura</a>
+    <a href="https://github.com/alexgc04/CyberShield-TFG" target="_blank" class="btn-github">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-scanline"></div>
+  <div class="particles"></div>
+  <div class="hero-content">
+    <div class="hero-badge reveal" data-auto-reveal="500">⚡ Trabajo de Fin de Grado — 2026</div>
+    <h1 class="reveal" data-auto-reveal="800">CyberShield<br>Pro</h1>
+    <p class="reveal" data-auto-reveal="1200">
+      <span id="typing-text" data-text="Plataforma integral de ciberseguridad ofensiva y defensiva potenciada por inteligencia artificial y agentes autónomos."></span><span class="typing-cursor"></span>
+    </p>
+    <a href="#about" class="hero-cta reveal" data-auto-reveal="2500">Explorar el proyecto →</a>
+  </div>
+  <div class="scroll-indicator">
+    <span>Scroll</span>
+    <div class="arrow"></div>
+  </div>
+</section>
+
+<!-- ABOUT + STATS -->
+<section id="about">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Sobre el proyecto</span>
+      <h2 class="section-title">Seguridad Integral <span class="glow-green">Automatizada</span></h2>
+      <p class="section-desc">CyberShield Pro unifica módulos ofensivos y defensivos bajo una misma plataforma, orquestados por agentes de IA a través de n8n. Diseñado como proyecto de fin de grado para demostrar que la ciberseguridad puede ser proactiva, inteligente y accesible.</p>
+    </div>
+    <div class="stats-grid stagger">
+      <div class="stat-card">
+        <span class="stat-number" data-target="22" data-suffix="+">0</span>
+        <span class="stat-label">Ataques catalogados</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" data-target="5">0</span>
+        <span class="stat-label">Firewalls monitorizados</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" data-target="4">0</span>
+        <span class="stat-label">Estándares ISO</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-number" data-target="3">0</span>
+        <span class="stat-label">Agentes IA</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OFFENSIVE MODULE -->
+<section id="offensive" style="background:var(--bg)">
+  <div class="section-bg" style="background-image:url('assets/network-nodes.jpg')"></div>
+  <div class="section-overlay"></div>
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Módulo Ofensivo</span>
+      <h2 class="section-title">Ataque y <span style="color:var(--red);text-shadow:0 0 20px rgba(239,68,68,.5)">Penetración</span></h2>
+      <p class="section-desc">Catálogo completo de vectores de ataque organizados por categoría. Cada ataque se configura con parámetros específicos y se ejecuta remotamente via webhooks de n8n hacia Kali Linux.</p>
+    </div>
+    <div class="cards-grid stagger">
+      <div class="feature-card">
+        <div class="card-icon red">🌐</div>
+        <span class="card-badge badge-critical">CAPA 2</span>
+        <h3>Infraestructura LAN</h3>
+        <p>MAC Flooding, Port Stealing, SPAN/Mirror, túneles encubiertos DNS/ICMP para exfiltración de datos.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon cyan">📡</div>
+        <span class="card-badge badge-high">WIRELESS</span>
+        <h3>Auditoría Wireless</h3>
+        <p>Des-autenticación, Evil Twin, captura de handshake WPA2, ataques WPS Pixie Dust, PMKID clientless.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon purple">🐍</div>
+        <span class="card-badge badge-info">SCAPY</span>
+        <h3>Laboratorio Scapy</h3>
+        <p>Crafting de paquetes, escaneo de vulnerabilidades, scripts de automatización encadenados con n8n.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEFENSIVE MODULE -->
+<section id="defensive">
+  <div class="section-bg" style="background-image:url('assets/shield-breaking.jpg')"></div>
+  <div class="section-overlay"></div>
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Módulo Defensivo</span>
+      <h2 class="section-title">Detección y <span class="glow-cyan">Protección</span></h2>
+      <p class="section-desc">Monitorización en tiempo real con múltiples capas de defensa. Integración con Wazuh para SIEM y reglas personalizadas de detección de amenazas.</p>
+    </div>
+    <div class="cards-grid stagger">
+      <div class="feature-card">
+        <div class="card-icon green">🔥</div>
+        <h3>5 Firewalls Activos</h3>
+        <p>Palo Alto, Fortinet, Check Point, Cisco Firepower y Sophos XGS monitorizados en tiempo real con métricas de throughput y uptime.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon cyan">📊</div>
+        <h3>Monitor de Tráfico 24h</h3>
+        <p>Visualización de tráfico entrante vs bloqueado. Detección de patrones anómalos con alertas automáticas por severidad.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon purple">🛡️</div>
+        <h3>Reglas de Protección</h3>
+        <p>DDoS mitigation, IPS/IDS, WAF, Geo-Blocking, Rate Limiting, SSL Inspection, DNS Filtering y Sandbox Analysis.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon red">🌍</div>
+        <h3>Mapa de Amenazas</h3>
+        <p>Geolocalización de origen de ataques. Asia-Pacífico lidera con el 38% de las amenazas detectadas, seguida de Europa del Este.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon green">📋</div>
+        <h3>Compliance ISO</h3>
+        <p>Seguimiento de cumplimiento ISO 27001, 27002, 27005 y NIST CSF con indicadores de progreso y auditorías automatizadas.</p>
+      </div>
+      <div class="feature-card">
+        <div class="card-icon cyan">🔍</div>
+        <h3>Wazuh SIEM</h3>
+        <p>Integración completa con Wazuh para correlación de eventos, reglas custom de detección y respuesta automatizada a incidentes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" style="background:var(--bg)">
+  <div class="section-bg" style="background-image:url('assets/server-room.jpg')"></div>
+  <div class="section-overlay"></div>
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Arquitectura del Sistema</span>
+      <h2 class="section-title">Flujo de <span class="glow-purple">Orquestación</span></h2>
+      <p class="section-desc">La plataforma conecta el frontend con Kali Linux a través de n8n, usando agentes especializados que ejecutan las auditorías de seguridad de forma autónoma.</p>
+    </div>
+    <div class="arch-flow stagger">
+      <div class="arch-node">
+        <div class="icon">🖥️</div>
+        <div class="name">Frontend</div>
+        <div class="sub">React + Vite</div>
+      </div>
+      <div class="arch-arrow reveal">→</div>
+      <div class="arch-node">
+        <div class="icon">⚡</div>
+        <div class="name">n8n</div>
+        <div class="sub">Orquestador</div>
+      </div>
+      <div class="arch-arrow reveal">→</div>
+      <div class="arch-node">
+        <div class="icon">🤖</div>
+        <div class="name">Agentes IA</div>
+        <div class="sub">Lead · Specialist</div>
+      </div>
+      <div class="arch-arrow reveal">→</div>
+      <div class="arch-node">
+        <div class="icon">🐉</div>
+        <div class="name">Kali Linux</div>
+        <div class="sub">SSH Tunnel</div>
+      </div>
+      <div class="arch-arrow reveal">→</div>
+      <div class="arch-node">
+        <div class="icon">🔐</div>
+        <div class="name">Wazuh</div>
+        <div class="sub">SIEM · Logs</div>
+      </div>
+    </div>
+    <div style="margin-top:4rem">
+      <div class="reveal">
+        <h3 style="font-size:1.2rem;margin-bottom:1.5rem;text-align:center;color:var(--muted);font-family:var(--mono);font-size:.8rem;letter-spacing:2px;text-transform:uppercase">Stack Tecnológico</h3>
+      </div>
+      <div class="tech-grid stagger">
+        <span class="tech-tag">React</span>
+        <span class="tech-tag">TypeScript</span>
+        <span class="tech-tag">Vite</span>
+        <span class="tech-tag">TailwindCSS</span>
+        <span class="tech-tag">n8n</span>
+        <span class="tech-tag">MongoDB</span>
+        <span class="tech-tag">Kali Linux</span>
+        <span class="tech-tag">Scapy</span>
+        <span class="tech-tag">Wazuh</span>
+        <span class="tech-tag">Python</span>
+        <span class="tech-tag">SSH</span>
+        <span class="tech-tag">Docker</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-bg"></div>
+  <div class="footer-content">
+    <div class="footer-left">
+      <div class="shield">🛡️</div>
+      <span>CYBERSHIELD PRO</span>
+    </div>
+    <div class="footer-center">
+      Trabajo de Fin de Grado — 2026<br>
+      <span style="color:var(--green)">Plataforma de Ciberseguridad con IA</span>
+    </div>
+    <div class="footer-right">
+      <a href="https://github.com/alexgc04/CyberShield-TFG" target="_blank" class="btn-github">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Ver código
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
