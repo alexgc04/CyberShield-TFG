@@ -7,42 +7,59 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Shield, Terminal, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const Login = () => {
-  const [identifier, setIdentifier] = useState("");
+const Register = () => {
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const passwordsMatch = !confirmPassword || password === confirmPassword;
+  const passwordLongEnough = !password || password.length >= 8;
+
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    if (!passwordsMatch) {
+      setError("Las contraseñas no coinciden.");
+      setLoading(false);
+      return;
+    }
+
+    if (!passwordLongEnough) {
+      setError("La contraseña debe tener al menos 8 caracteres.");
+      setLoading(false);
+      return;
+    }
+
     try {
       // Usamos el proxy configurado en vite.config.ts
-      const res = await fetch(`/api/auth/login`, {
+      const res = await fetch(`/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username: identifier, password }),
+        body: JSON.stringify({ username, email, password }),
       });
 
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        setError("Credenciales incorrectas");
+      if (!res.ok) {
+        setError(data.error || "Error al registrar la cuenta.");
         setLoading(false);
         return;
       }
 
       toast({
-        title: "Acceso concedido",
-        description: `Bienvenido, ${data.user.username}`,
+        title: "Cuenta creada",
+        description: "Ahora puedes iniciar sesión.",
       });
-      navigate("/dashboard");
+      navigate("/login");
     } catch {
       setError("No se pudo conectar con el servidor de autenticación.");
       setLoading(false);
@@ -76,24 +93,39 @@ const Login = () => {
             CYBERSHIELD PRO
           </CardTitle>
           <CardDescription className="text-muted-foreground font-mono text-xs">
-            <span className="text-primary/70">$</span> Iniciar sesión en el sistema
+            <span className="text-primary/70">$</span> Registrar nuevo usuario
             <span className="animate-terminal-blink text-primary">_</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="identifier" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Usuario o Email
+              <Label htmlFor="username" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                Nombre de usuario
               </Label>
               <Input
-                id="identifier"
+                id="username"
                 type="text"
-                placeholder="admin"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="operator01"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
-                className="bg-background/50 border-primary/30 focus:border-primary focus:glow-green font-mono text-sm placeholder:text-muted-foreground/50"
+                className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reg-email" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                Email
+              </Label>
+              <Input
+                id="reg-email"
+                type="email"
+                placeholder="usuario@cybershield.io"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
               />
             </div>
 
@@ -119,6 +151,27 @@ const Login = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {password && !passwordLongEnough && (
+                <p className="text-xs text-destructive font-mono">Mínimo 8 caracteres</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                Confirmar contraseña
+              </Label>
+              <Input
+                id="confirm"
+                type="password"
+                placeholder="••••••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className={`bg-background/50 border-primary/30 focus:border-primary font-mono text-sm ${confirmPassword && !passwordsMatch ? "border-destructive" : ""}`}
+              />
+              {confirmPassword && !passwordsMatch && (
+                <p className="text-xs text-destructive font-mono">Las contraseñas no coinciden</p>
+              )}
             </div>
 
             {error && (
@@ -129,18 +182,18 @@ const Login = () => {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || (!passwordsMatch || !passwordLongEnough)}
               className="w-full bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-mono uppercase tracking-widest text-sm h-11"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <Terminal className="w-4 h-4 animate-pulse" />
-                  AUTENTICANDO...
+                  REGISTRANDO...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
                   <Terminal className="w-4 h-4" />
-                  ACCEDER AL SISTEMA
+                  CREAR CUENTA
                 </span>
               )}
             </Button>
@@ -148,10 +201,10 @@ const Login = () => {
 
           <div className="mt-6 text-center">
             <Link
-              to="/register"
+              to="/login"
               className="text-sm text-muted-foreground hover:text-primary transition-colors font-mono"
             >
-              ¿No tienes cuenta? Regístrate
+              ¿Ya tienes cuenta? Inicia sesión
             </Link>
           </div>
 
@@ -166,4 +219,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;
