@@ -42,13 +42,17 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema, "users");
 
 const attackTemplateSchema = new mongoose.Schema({
-  attack_id: { type: String, required: true, unique: true },
+  id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
-  category: { type: String, required: true },
-  command_base: { type: String, required: true },
-  description: { type: String, required: true },
+  module: { type: String, required: true },
   mitre_id: { type: String, required: true },
-  params: { type: mongoose.Schema.Types.Mixed, required: true },
+  risk_level: { type: String },
+  wazuh_rule_id: { type: Number },
+  description: { type: String, required: true },
+  command: { type: String, required: true },
+  command_alt: { type: String },
+  parameters: { type: Array, required: true },
+  logger_command: { type: String, required: true }
 });
 const AttackTemplate = mongoose.model("AttackTemplate", attackTemplateSchema, "attack_templates");
 
@@ -191,73 +195,27 @@ app.get("/api/attacks/templates", async (req, res) => {
 
 app.post("/api/attacks/execute", async (req, res) => {
   try {
-    const { attack_id, params } = req.body;
-    const template = await AttackTemplate.findOne({ attack_id });
-    if (!template) {
-      return res.status(404).json({ success: false, error: "Plantilla no encontrada" });
-    }
-
-    let command = template.command_base;
-    for (const [key, value] of Object.entries(params || {})) {
-      command = command.replace(`{{${key}}}`, value);
-    }
-
-    const loggerCmd = `logger -t CyberShield -p local0.alert "SEC_VIOLATION: Escaneo nmap ${params.target} - MITRE:${template.mitre_id}"`;
-
-    const conn = new Client();
-    conn.on('ready', () => {
-      // Execute the attack command
-      conn.exec(command, (err, stream) => {
-        if (err) {
-          conn.end();
-          return res.status(500).json({ success: false, error: "Error ejecutando el comando SSH" });
-        }
-        
-        let output = "";
-        stream.on('close', (code, signal) => {
-          // Execute the logger command for Wazuh
-          conn.exec(loggerCmd, (err2, stream2) => {
-             if (stream2) {
-               stream2.on('close', () => conn.end());
-             } else {
-               conn.end();
-             }
-          });
-
-          // Generate PDF
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename=CS-RPT-${attack_id}.pdf`);
-          
-          const doc = new PDFDocument();
-          doc.pipe(res);
-          doc.fontSize(16).text(`Reporte de Ataque: ${template.name}`, { align: 'center' });
-          doc.moveDown();
-          doc.fontSize(12).text(`Objetivo: ${params.target}`);
-          doc.text(`ID Mitre: ${template.mitre_id}`);
-          doc.text(`Fecha: ${new Date().toLocaleString()}`);
-          doc.moveDown();
-          doc.fontSize(10).font('Courier').text(output);
-          doc.end();
-        }).on('data', (data) => {
-          output += data.toString();
-        }).stderr.on('data', (data) => {
-          output += data.toString();
-        });
-      });
-    }).on('error', (err) => {
-      console.error("SSH Error:", err);
-      res.status(500).json({ success: false, error: "Error de conexión SSH con Kali" });
-    }).connect({
-      host: process.env.SSH_HOST,
-      port: process.env.SSH_PORT || 22,
-      username: process.env.SSH_USER,
-      password: process.env.SSH_PASS,
-      readyTimeout: 10000
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
+    const n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        attack_id: req.body.attack_id || req.body.id,
+        parameters: req.body.parameters || req.body.params,
+        company_name: req.body.company_name || 'Empresa Auditada'
+      })
     });
+
+    if (!n8nResponse.ok) {
+      return res.status(500).json({ success: false, error: "Error al comunicar con n8n webhook" });
+    }
+
+    const data = await n8nResponse.json();
+    res.json(data);
 
   } catch (err) {
     console.error("Execute Attack Error:", err);
-    res.status(500).json({ success: false, error: "Error en el servidor al ejecutar el ataque" });
+    res.status(500).json({ success: false, error: "Error en el servidor al enviar el ataque" });
   }
 });
 

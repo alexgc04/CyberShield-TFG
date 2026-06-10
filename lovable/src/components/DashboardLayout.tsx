@@ -1,16 +1,9 @@
-import { useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Menu } from "lucide-react";
 
 const DashboardLayout = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const auth = localStorage.getItem("cybershield_auth");
-    if (!auth) navigate("/login");
-  }, [navigate]);
 
   return (
     <SidebarProvider>

@@ -1,13 +1,32 @@
+# ══════════════════════════════════════════
+# CyberShield Pro — .gitignore
+# ══════════════════════════════════════════
+
 # Dependencias
 node_modules/
 
-# Informes generados (se gestionan solo desde la web)
+# Variables de entorno (NUNCA subir)
+.env
+.env.local
+.env.production
+
+# Certificados TLS (generados localmente)
+certs/
+
+# Informes generados (se gestionan desde la web)
 docs/reports/*.md
 docs/reports/*.pdf
 docs/reports/.md-to-pdf-config.json
 lovable/public/reports/*.pdf
 
+# Build output
+lovable/dist/
+
 # Temporales
 *.log
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/
+.idea/

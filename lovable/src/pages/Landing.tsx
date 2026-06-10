@@ -193,7 +193,7 @@ export default function Landing() {
       </section>
 
       {/* ═══ ARCHITECTURE ═══ */}
-      <Section id="architecture" bgImage="/images/img5.jpg" className="animate-drone-pull-back">
+      <Section id="architecture" bgImage="/images/img5.jpg">
         <div className="landing-reveal">
           <span className="font-mono text-xs text-primary tracking-[4px] uppercase">// Arquitectura</span>
           <h2 className="text-[clamp(2rem,4vw,3rem)] font-extrabold mt-2 mb-3">Flujo de <span className="text-neon-purple" style={{ textShadow: "0 0 20px hsl(270 100% 60%/0.5)" }}>Orquestación</span></h2>

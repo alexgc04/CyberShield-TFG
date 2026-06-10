@@ -1,4 +1,4 @@
-﻿# CyberShield-TFG
+# CyberShield-TFG
 # Proyecto CyberShield: SIEM Wazuh & Seguridad Defensiva
 
 ## Descripción
@@ -16,3 +16,11 @@ Este proyecto de **Fin de Grado** consiste en el despliegue de una infraestructu
 4. **Documentación:** Manuales técnicos y cumplimiento normativo.
 
 ## 🛡️ Ataques Documentados
+
+## Arquitectura de Producción y HTTPS
+Para el entorno de desarrollo local (localhost), la plataforma funciona sobre HTTP para agilizar la construcción y las pruebas. Las cookies de autenticación (`cybershield_token`) están configuradas con `secure: false` temporalmente durante el desarrollo para permitir un flujo de sesiones funcional.
+
+Para el despliegue en producción, se documentará y utilizará la siguiente arquitectura:
+* **Reverse Proxy:** **Caddy Server** o **Cloudflared**.
+* **Certificados SSL:** Autogenerados por Caddy mediante Let's Encrypt o delegados en el túnel de Cloudflare.
+* **Seguridad de Cookies:** En producción, las cookies JWT pasarán a modo estricto (`secure: true`, `SameSite: strict`) asegurando el tráfico cifrado de extremo a extremo y evitando ataques Man-in-the-Middle (MitM).

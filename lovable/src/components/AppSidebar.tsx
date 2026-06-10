@@ -21,8 +21,13 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("cybershield_auth");
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:3020/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch { /* ignore */ }
     navigate("/login");
   };
 

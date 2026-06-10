@@ -1,0 +1,18 @@
+<group name="cybershield,">
+
+  <rule id="100499" level="3">
+    <decoded_as>syslog</decoded_as>
+    <match>CyberShield</match>
+    <description>CyberShield ASV: Evento base</description>
+    <group>cybershield,</group>
+  </rule>
+
+  <rule id="100500" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: MAC Flooding</match>
+    <description>ALERTA CYBERSHIELD: Ataque MAC Flooding detectado</description>
+    <mitre><id>T1557</id></mitre>
+    <group>cybershield,lan,mac_flooding,</group>
+  </rule>
+
+</group>
