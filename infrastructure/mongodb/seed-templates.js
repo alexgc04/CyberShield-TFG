@@ -1,10 +1,10 @@
-// scripts/seed-templates.js
+// infrastructure/mongodb/seed-templates.js
 const { MongoClient } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 
-const jsonPath = path.join(__dirname, '..', 'infrastructure', 'mongodb', 'attack_templates.json');
+const jsonPath = path.join(__dirname, 'attack_templates.json');
 const templates = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
 
 async function seed() {

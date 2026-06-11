@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "report:server": "node report-server.js"
+    "report:server": "node report-server.js",
+    "seed": "node infrastructure/mongodb/seed-templates.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

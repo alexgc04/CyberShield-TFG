@@ -19,10 +19,13 @@
         },
         {
             "parameters": {
-                "operation": "findOne",
+                "resource": "document",
+                "operation": "find",
                 "collection": "attack_templates",
-                "query": "={ \"id\": \"{{ $json.body.attack_id }}\" }",
-                "options": {}
+                "query": "={{ JSON.stringify({ id: $json.body.attack_id }) }}",
+                "options": {
+                    "limit": 1
+                }
             },
             "id": "node-mongodb",
             "name": "MongoDB — Buscar plantilla",
@@ -41,7 +44,7 @@
         },
         {
             "parameters": {
-                "jsCode": "// Leer datos del webhook y la plantilla de MongoDB\nconst webhookData = $('Webhook').first().json.body;\nconst template = $('MongoDB — Buscar plantilla').first().json;\n\nconst attackId = webhookData.attack_id;\nconst parameters = webhookData.parameters || {};\nconst companyName = webhookData.company_name || 'Empresa Auditada';\nconst reportId = 'CS-RPT-' + new Date().toISOString().slice(0,10) + '-' + attackId;\n\n// Función para reemplazar {{variables}} con valores reales del formulario\nfunction buildCommand(template_str, params) {\n  if (!template_str) return '';\n  return Object.entries(params).reduce((cmd, [key, value]) => {\n    return cmd.replace(new RegExp('\\\\{\\\\{' + key + '\\\\}\\\\}', 'g'), value);\n  }, template_str);\n}\n\n// Construir comando de ataque con parámetros del usuario\nconst attackCommand = buildCommand(template.command, parameters);\n\n// Si target_ip está vacío, usar variante sin -d\nconst finalCommand = parameters.target_ip && parameters.target_ip.trim() !== ''\n  ? buildCommand(template.command_alt || template.command, parameters)\n  : attackCommand;\n\n// Construir comando del logger (traza para Wazuh)\nconst loggerCommand = buildCommand(template.logger_command, parameters);\n\n// Timestamp de inicio para correlación con Wazuh\nconst startTimestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    attack_id: attackId,\n    attack_name: template.name,\n    mitre_id: template.mitre_id,\n    risk_level: template.risk_level,\n    wazuh_rule_id: template.wazuh_rule_id,\n    description: template.description,\n    command: finalCommand,\n    logger_command: loggerCommand,\n    parameters: parameters,\n    company_name: companyName,\n    report_id: reportId,\n    start_timestamp: startTimestamp\n  }\n}];"
+                "jsCode": "const webhookData = $('Webhook').first().json.body;\nconst raw = $('MongoDB — Buscar plantilla').first().json;\nconst tmpl = Array.isArray(raw) ? raw[0] : raw;\n\nconst parameters = webhookData.parameters || {};\nconst companyName = webhookData.company_name || 'Empresa Auditada';\nconst reportId = 'CS-RPT-' + new Date().toISOString().slice(0,10) + '-' + webhookData.attack_id;\n\nfunction buildCommand(str, params) {\n  if (!str) return '';\n  return Object.entries(params).reduce((cmd, [key, value]) => {\n    return cmd.replace(new RegExp('\\\\{\\\\{' + key + '\\\\}\\\\}', 'g'), value || '');\n  }, str);\n}\n\nconst useAlt = parameters.target_ip && parameters.target_ip.trim() !== '';\nconst finalCommand = buildCommand(\n  useAlt && tmpl.command_alt ? tmpl.command_alt : tmpl.command,\n  parameters\n);\n\nreturn [{\n  json: {\n    attack_id: webhookData.attack_id,\n    attack_name: tmpl.name,\n    mitre_id: tmpl.mitre_id,\n    risk_level: tmpl.risk_level,\n    wazuh_rule_id: tmpl.wazuh_rule_id,\n    description: tmpl.description,\n    command: finalCommand,\n    parameters: parameters,\n    company_name: companyName,\n    report_id: reportId,\n    start_timestamp: new Date().toISOString()\n  }\n}];"
             },
             "id": "node-code",
             "name": "Code — Construir comandos",
@@ -54,11 +57,13 @@
         },
         {
             "parameters": {
+                "resource": "command",
+                "operation": "execute",
                 "command": "={{ $json.command }}"
             },
             "id": "node-ssh-attack",
             "name": "SSH — Ejecutar ataque en Kali",
-            "type": "n8n-nodes-base.executeCommand",
+            "type": "n8n-nodes-base.ssh",
             "typeVersion": 1,
             "position": [
                 900,
@@ -73,26 +78,8 @@
         },
         {
             "parameters": {
-                "command": "={{ $('Code — Construir comandos').first().json.logger_command }}"
-            },
-            "id": "node-ssh-logger",
-            "name": "SSH — Logger Wazuh",
-            "type": "n8n-nodes-base.executeCommand",
-            "typeVersion": 1,
-            "position": [
-                1120,
-                300
-            ],
-            "credentials": {
-                "sshPassword": {
-                    "id": "SSH_CREDENTIAL_ID",
-                    "name": "Kali Linux SSH"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "url": "http://localhost:3010/api/reports/generate",
+                "method": "POST",
+                "url": "http://host.docker.internal:3010/api/reports/generate",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
@@ -104,21 +91,21 @@
                 },
                 "sendBody": true,
                 "bodyContentType": "json",
-                "jsonBody": "={\n  \"report_id\": \"{{ $('Code — Construir comandos').first().json.report_id }}\",\n  \"company_name\": \"{{ $('Code — Construir comandos').first().json.company_name }}\",\n  \"attack_id\": \"{{ $('Code — Construir comandos').first().json.attack_id }}\",\n  \"attack_name\": \"{{ $('Code — Construir comandos').first().json.attack_name }}\",\n  \"mitre_id\": \"{{ $('Code — Construir comandos').first().json.mitre_id }}\",\n  \"risk_level\": \"{{ $('Code — Construir comandos').first().json.risk_level }}\",\n  \"description\": \"{{ $('Code — Construir comandos').first().json.description }}\",\n  \"command_executed\": \"{{ $('Code — Construir comandos').first().json.command }}\",\n  \"parameters\": {{ JSON.stringify($('Code — Construir comandos').first().json.parameters) }},\n  \"ssh_output\": \"{{ $('SSH — Ejecutar ataque en Kali').first().json.stdout }}\",\n  \"ssh_exit_code\": {{ $('SSH — Ejecutar ataque en Kali').first().json.exitCode }},\n  \"logger_output\": \"{{ $('SSH — Logger Wazuh').first().json.stdout }}\",\n  \"start_timestamp\": \"{{ $('Code — Construir comandos').first().json.start_timestamp }}\",\n  \"end_timestamp\": \"{{ new Date().toISOString() }}\",\n  \"wazuh_rule_id\": {{ $('Code — Construir comandos').first().json.wazuh_rule_id }}\n}"
+                "jsonBody": "={{ JSON.stringify({ report_id: $('Code — Construir comandos').first().json.report_id, company_name: $('Code — Construir comandos').first().json.company_name, attack_id: $('Code — Construir comandos').first().json.attack_id, attack_name: $('Code — Construir comandos').first().json.attack_name, mitre_id: $('Code — Construir comandos').first().json.mitre_id, risk_level: $('Code — Construir comandos').first().json.risk_level, description: $('Code — Construir comandos').first().json.description, command_executed: $('Code — Construir comandos').first().json.command, parameters: $('Code — Construir comandos').first().json.parameters, ssh_output: $('SSH — Ejecutar ataque en Kali').first().json.stdout || '', ssh_exit_code: $('SSH — Ejecutar ataque en Kali').first().json.exitCode || 0, start_timestamp: $('Code — Construir comandos').first().json.start_timestamp, end_timestamp: new Date().toISOString(), wazuh_rule_id: $('Code — Construir comandos').first().json.wazuh_rule_id }) }}"
             },
             "id": "node-report",
             "name": "HTTP — Generar PDF",
             "type": "n8n-nodes-base.httpRequest",
             "typeVersion": 4,
             "position": [
-                1340,
+                1120,
                 300
             ]
         },
         {
             "parameters": {
                 "respondWith": "json",
-                "responseBody": "={\n  \"success\": true,\n  \"attack_id\": \"{{ $('Code — Construir comandos').first().json.attack_id }}\",\n  \"report_id\": \"{{ $('Code — Construir comandos').first().json.report_id }}\",\n  \"pdf_url\": \"{{ $json.pdf_url }}\",\n  \"ssh_exit_code\": {{ $('SSH — Ejecutar ataque en Kali').first().json.exitCode }},\n  \"wazuh_rule_id\": {{ $('Code — Construir comandos').first().json.wazuh_rule_id }},\n  \"start_timestamp\": \"{{ $('Code — Construir comandos').first().json.start_timestamp }}\"\n}",
+                "responseBody": "={{ JSON.stringify({ success: true, attack_id: $('Code — Construir comandos').first().json.attack_id, report_id: $('Code — Construir comandos').first().json.report_id, pdf_url: $json.pdf_url || '', ssh_exit_code: $('SSH — Ejecutar ataque en Kali').first().json.exitCode || 0, wazuh_rule_id: $('Code — Construir comandos').first().json.wazuh_rule_id, start_timestamp: $('Code — Construir comandos').first().json.start_timestamp }) }}",
                 "options": {}
             },
             "id": "node-response",
@@ -126,7 +113,7 @@
             "type": "n8n-nodes-base.respondToWebhook",
             "typeVersion": 1,
             "position": [
-                1560,
+                1340,
                 300
             ]
         }
@@ -166,17 +153,6 @@
             ]
         },
         "SSH — Ejecutar ataque en Kali": {
-            "main": [
-                [
-                    {
-                        "node": "SSH — Logger Wazuh",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "SSH — Logger Wazuh": {
             "main": [
                 [
                     {

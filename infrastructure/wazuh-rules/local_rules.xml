@@ -1,5 +1,6 @@
 <group name="cybershield,">
 
+  <!-- Regla padre: captura todos los eventos de CyberShield -->
   <rule id="100499" level="3">
     <decoded_as>syslog</decoded_as>
     <match>CyberShield</match>
@@ -7,12 +8,130 @@
     <group>cybershield,</group>
   </rule>
 
+  <!-- MOD01: MAC Flooding -->
   <rule id="100500" level="12">
     <if_sid>100499</if_sid>
     <match>SEC_VIOLATION: MAC Flooding</match>
     <description>ALERTA CYBERSHIELD: Ataque MAC Flooding detectado</description>
     <mitre><id>T1557</id></mitre>
     <group>cybershield,lan,mac_flooding,</group>
+  </rule>
+
+  <!-- MOD02: Switch Port Stealing -->
+  <rule id="100501" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Switch Port Stealing</match>
+    <description>ALERTA CYBERSHIELD: Robo de puerto de switch detectado</description>
+    <mitre><id>T1557</id></mitre>
+    <group>cybershield,lan,port_stealing,</group>
+  </rule>
+
+  <!-- MOD03: SPAN / Port Mirror -->
+  <rule id="100502" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: SPAN/Port Mirror</match>
+    <description>ALERTA CYBERSHIELD: Captura de tráfico de red no autorizada detectada</description>
+    <mitre><id>T1040</id></mitre>
+    <group>cybershield,lan,span_mirror,</group>
+  </rule>
+
+  <!-- MOD04: Covert Channels -->
+  <rule id="100503" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Covert Channel</match>
+    <description>ALERTA CYBERSHIELD: Intento de canal encubierto y exfiltración de datos detectado</description>
+    <mitre><id>T1048</id></mitre>
+    <group>cybershield,lan,covert_channel,</group>
+  </rule>
+
+  <!-- MOD05a/05b: ARP Spoofing (cubre Injection + MitM) -->
+  <rule id="100504" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: ARP</match>
+    <description>ALERTA CYBERSHIELD: Envenenamiento de caché ARP (Man-in-the-Middle) detectado</description>
+    <mitre><id>T1557</id></mitre>
+    <group>cybershield,lan,arp_spoofing,</group>
+  </rule>
+
+  <!-- MOD06: DHCP Starvation -->
+  <rule id="100505" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: DHCP Starvation</match>
+    <description>ALERTA CYBERSHIELD: Agotamiento de pool DHCP y servidor falso detectado</description>
+    <mitre><id>T1498</id></mitre>
+    <group>cybershield,lan,dhcp_starvation,</group>
+  </rule>
+
+  <!-- MOD07: Scapy SYN Scan -->
+  <rule id="100506" level="10">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Scapy SYN</match>
+    <description>ALERTA CYBERSHIELD: Escaneo de red sigiloso (Half-Open Scan) detectado</description>
+    <mitre><id>T1046</id></mitre>
+    <group>cybershield,scapy,syn_scan,</group>
+  </rule>
+
+  <!-- MOD08: Scapy ACK Scan -->
+  <rule id="100507" level="10">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Scapy ACK</match>
+    <description>ALERTA CYBERSHIELD: Escaneo ACK (Evasión de Firewall) detectado</description>
+    <mitre><id>T1046</id></mitre>
+    <group>cybershield,scapy,ack_scan,</group>
+  </rule>
+
+  <!-- MOD09: Scapy ARP Scan -->
+  <rule id="100508" level="8">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Scapy ARP</match>
+    <description>ALERTA CYBERSHIELD: Escaneo de descubrimiento ARP en red local detectado</description>
+    <mitre><id>T1018</id></mitre>
+    <group>cybershield,scapy,arp_scan,</group>
+  </rule>
+
+  <!-- MOD10: Scapy Fuzzing -->
+  <rule id="100509" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Scapy Protocol Fuzzing</match>
+    <description>ALERTA CYBERSHIELD: Inyección de paquetes malformados (Fuzzing) detectada</description>
+    <mitre><id>T1498</id></mitre>
+    <group>cybershield,scapy,fuzzing,</group>
+  </rule>
+
+  <!-- MOD11: Fuerza Bruta SSH -->
+  <rule id="100510" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: SSH Brute Force</match>
+    <description>ALERTA CYBERSHIELD: Ataque de fuerza bruta SSH detectado</description>
+    <mitre><id>T1110</id></mitre>
+    <group>cybershield,brute,ssh_bruteforce,</group>
+  </rule>
+
+  <!-- MOD12: Fuerza Bruta Web -->
+  <rule id="100511" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Web Brute Force</match>
+    <description>ALERTA CYBERSHIELD: Ataque de fuerza bruta web detectado</description>
+    <mitre><id>T1110</id></mitre>
+    <group>cybershield,brute,web_bruteforce,</group>
+  </rule>
+
+  <!-- MOD13: Escalada de Privilegios Local -->
+  <rule id="100512" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Local Privilege Escalation</match>
+    <description>ALERTA CYBERSHIELD: Enumeración de escalada de privilegios local detectada</description>
+    <mitre><id>T1548</id></mitre>
+    <group>cybershield,privesc,local_escalation,</group>
+  </rule>
+
+  <!-- MOD14: Escalada de Dominio Kerberos -->
+  <rule id="100513" level="12">
+    <if_sid>100499</if_sid>
+    <match>SEC_VIOLATION: Kerberos ASREPRoast</match>
+    <description>ALERTA CYBERSHIELD: Ataque Kerberos ASREPRoast (escalada de dominio) detectado</description>
+    <mitre><id>T1558</id></mitre>
+    <group>cybershield,privesc,kerberos_asreproast,</group>
   </rule>
 
 </group>
