@@ -158,28 +158,165 @@ app.get("/api/auth/me", async (req, res) => {
   }
 });
 
-// STATS (Dashboard)
-app.get("/api/stats", (req, res) => {
-  // Datos simulados/dinámicos para el Dashboard del TFG
-  res.json({
-    success: true,
-    stats: {
-      score: 85,
-      vulnerabilities: 12,
-      firewalls: 4,
-      lastScan: new Date().toISOString()
-    },
-    activity: [
-      { id: 1, type: "scan", target: "192.168.1.50", status: "completado", severity: "info", time: new Date().toLocaleTimeString() },
-      { id: 2, type: "alert", target: "Web Server", status: "detectado", severity: "critical", time: new Date(Date.now() - 3600000).toLocaleTimeString() },
-      { id: 3, type: "alert", target: "DB Cluster", status: "mitigado", severity: "warning", time: new Date(Date.now() - 7200000).toLocaleTimeString() }
-    ]
-  });
+// STATS (Dashboard — datos reales de MongoDB)
+app.get("/api/stats", async (req, res) => {
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const totalTemplates = await AttackTemplate.countDocuments();
+
+    // attack_logs collection (raw mongoose)
+    const db = mongoose.connection.db;
+    const logsCol = db.collection('attack_logs');
+    const totalAttacks = await logsCol.countDocuments();
+    const todayAttacks = await logsCol.countDocuments({ timestamp: { $gte: today } });
+    const lastAttack = await logsCol.findOne({}, { sort: { timestamp: -1 } });
+
+    // Ataques por módulo (últimos 7 días)
+    const attacksByModule = await logsCol.aggregate([
+      { $match: { timestamp: { $gte: weekAgo } } },
+      { $group: { _id: "$module", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]).toArray();
+
+    // Últimas 5 operaciones
+    const recentOps = await logsCol.find({})
+      .sort({ timestamp: -1 })
+      .limit(5)
+      .toArray();
+
+    res.json({
+      success: true,
+      stats: {
+        totalTemplates,
+        totalAttacks,
+        todayAttacks,
+        lastAttack: lastAttack ? {
+          name: lastAttack.attack_name || lastAttack.attack_id,
+          timestamp: lastAttack.timestamp
+        } : null,
+        attacksByModule,
+        recentOps
+      }
+    });
+  } catch (err) {
+    console.error("Stats Error:", err);
+    res.status(500).json({ success: false, error: "Error cargando estadísticas" });
+  }
 });
 
-// REPORTS GENERATE (Placeholder)
+// HEALTH CHECK — ping a servicios
+app.get("/api/health", async (req, res) => {
+  const results = { mongodb: false, n8n: false, kali: false, wazuh: false };
+
+  // MongoDB — ya estamos conectados si llegamos aquí
+  results.mongodb = mongoose.connection.readyState === 1;
+
+  // n8n
+  try {
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
+    const r = await fetch(n8nUrl + '/healthz', { signal: AbortSignal.timeout(3000) });
+    results.n8n = r.ok;
+  } catch { results.n8n = false; }
+
+  // Kali SSH — intento de conexión rápida
+  try {
+    const conn = new Client();
+    results.kali = await new Promise((resolve) => {
+      const timer = setTimeout(() => { conn.end(); resolve(false); }, 3000);
+      conn.on('ready', () => { clearTimeout(timer); conn.end(); resolve(true); })
+          .on('error', () => { clearTimeout(timer); resolve(false); })
+          .connect({
+            host: process.env.SSH_HOST,
+            port: process.env.SSH_PORT || 22,
+            username: process.env.SSH_USER,
+            password: process.env.SSH_PASS,
+            readyTimeout: 3000
+          });
+    });
+  } catch { results.kali = false; }
+
+  // Wazuh
+  try {
+    const wazuhHost = process.env.WAZUH_HOST || '10.10.10.145';
+    const r = await fetch(`https://${wazuhHost}:9200`, {
+      signal: AbortSignal.timeout(3000),
+      headers: { 'Authorization': 'Basic ' + Buffer.from((process.env.WAZUH_USER || 'admin') + ':' + (process.env.WAZUH_PASS || 'admin')).toString('base64') }
+    });
+    results.wazuh = r.ok;
+  } catch { results.wazuh = false; }
+
+  res.json({ success: true, services: results });
+});
+
+// WAZUH ALERTS PROXY — para el dashboard defensivo
+app.post("/api/wazuh/alerts", async (req, res) => {
+  try {
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
+    const response = await fetch(n8nUrl + '/webhook/wazuh-alerts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body)
+    });
+    if (!response.ok) throw new Error('n8n error');
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.json({ alerts: [], error: "No se pudo conectar con n8n/Wazuh" });
+  }
+});
+
+// REPORTS GENERATE
 app.post("/api/reports/generate", (req, res) => {
-  res.json({ success: true, message: "pendiente" });
+  // El flujo de n8n envía los datos del ataque aquí para generar el PDF
+  const data = req.body;
+  const reportId = data.report_id || 'CS-RPT-unknown';
+
+  const PDFDoc = new PDFDocument();
+  const chunks = [];
+  PDFDoc.on('data', c => chunks.push(c));
+  PDFDoc.on('end', () => {
+    const pdfBuffer = Buffer.concat(chunks);
+    // En producción guardaríamos el archivo; por ahora devolvemos la URL
+    res.json({
+      success: true,
+      report_id: reportId,
+      pdf_url: `/api/reports/${reportId}.pdf`,
+      size: pdfBuffer.length
+    });
+  });
+
+  PDFDoc.fontSize(18).text(`CyberShield — Informe de Ataque`, { align: 'center' });
+  PDFDoc.moveDown();
+  PDFDoc.fontSize(12).text(`Empresa: ${data.company_name || 'N/A'}`);
+  PDFDoc.text(`Ataque: ${data.attack_name || data.attack_id}`);
+  PDFDoc.text(`MITRE: ${data.mitre_id || 'N/A'}`);
+  PDFDoc.text(`Riesgo: ${data.risk_level || 'N/A'}`);
+  PDFDoc.text(`Fecha: ${new Date().toLocaleString()}`);
+  PDFDoc.moveDown();
+  PDFDoc.text(`Comando: ${data.command_executed || 'N/A'}`);
+  PDFDoc.moveDown();
+  PDFDoc.fontSize(10).font('Courier').text(`SSH Output:\n${data.ssh_output || '(sin output)'}`);
+  PDFDoc.end();
+});
+
+// ATTACK LOGS — registrar resultado de ataques
+app.post("/api/attacks/log", async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const logsCol = db.collection('attack_logs');
+    const logEntry = {
+      ...req.body,
+      timestamp: new Date()
+    };
+    await logsCol.insertOne(logEntry);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Log Error:", err);
+    res.status(500).json({ success: false, error: "Error guardando log" });
+  }
 });
 
 // ── ATTACK MODULE ROUTES ──
@@ -211,6 +348,26 @@ app.post("/api/attacks/execute", async (req, res) => {
     }
 
     const data = await n8nResponse.json();
+
+    // Guardar log del ataque en MongoDB
+    try {
+      const db = mongoose.connection.db;
+      const logsCol = db.collection('attack_logs');
+      await logsCol.insertOne({
+        attack_id: req.body.attack_id || req.body.id,
+        attack_name: data.attack_name || req.body.attack_id,
+        module: data.module || 'UNKNOWN',
+        parameters: req.body.parameters || req.body.params,
+        company_name: req.body.company_name || 'Empresa Auditada',
+        ssh_exit_code: data.ssh_exit_code || 0,
+        report_id: data.report_id,
+        pdf_url: data.pdf_url,
+        timestamp: new Date()
+      });
+    } catch (logErr) {
+      console.error("Error saving attack log:", logErr);
+    }
+
     res.json(data);
 
   } catch (err) {
