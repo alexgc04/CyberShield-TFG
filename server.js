@@ -240,7 +240,7 @@ app.get("/api/health", async (req, res) => {
 
   // Wazuh
   try {
-    const wazuhHost = process.env.WAZUH_HOST || '10.10.10.145';
+    const wazuhHost = process.env.WAZUH_HOST || '10.10.10.49';
     const r = await fetch(`https://${wazuhHost}:9200`, {
       signal: AbortSignal.timeout(3000),
       headers: { 'Authorization': 'Basic ' + Buffer.from((process.env.WAZUH_USER || 'admin') + ':' + (process.env.WAZUH_PASS || 'admin')).toString('base64') }

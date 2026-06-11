@@ -33,13 +33,13 @@ Agente que actualizó: Gemini (Antigravity)
 - Importación de reglas Wazuh al servidor de producción.
 
 ### 📋 PENDIENTE (en este orden)
-- Importar reglas Wazuh en servidor 10.10.10.145 (esperando confirmación del usuario).
+- Importar reglas Wazuh en servidor 10.10.10.49 (esperando confirmación del usuario).
 - GitHub cleanup + README final.
 
 ---
 
 ## PRÓXIMO PASO INMEDIATO
-Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.145 para importar las reglas Wazuh?"
+Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.49 para importar las reglas Wazuh?"
 
 ---
 

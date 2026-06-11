@@ -37,7 +37,7 @@ Confirma en 2 líneas qué vas a hacer y qué archivos vas a tocar.
   attack_logs, scan_logs)
 - Orquestador: n8n (comunicación por webhooks HTTP)
 - Agente atacante: Kali Linux (conexión SSH)
-- SIEM: Wazuh en 10.10.10.145 (Indexer :9200, API :55000)
+- SIEM: Wazuh en 10.10.10.49 (Indexer :9200, API :55000)
 
 ## Flujo de cada ataque (siempre igual, no cambiar)
 Frontend → POST /api/attacks/execute → server.js

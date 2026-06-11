@@ -37,8 +37,8 @@ export default function Defensive() {
   const [selectedAlert, setSelectedAlert] = useState<WazuhAlert | null>(null);
   const [minLevel, setMinLevel] = useState("0");
   
-  const [indexerUrl, setIndexerUrl] = useState("https://10.10.10.145:9200");
-  const [managerUrl, setManagerUrl] = useState("https://10.10.10.145:55000");
+  const [indexerUrl, setIndexerUrl] = useState("https://10.10.10.49:9200");
+  const [managerUrl, setManagerUrl] = useState("https://10.10.10.49:55000");
 
   const { toast } = useToast();
 
