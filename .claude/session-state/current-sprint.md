@@ -1,36 +1,36 @@
 # Estado del Sprint — CyberShield TFG
 
-Última actualización: 2026-06-11
-Agente que actualizó: Gemini (Antigravity)
+Última actualización: 2026-06-14
+Agente que actualizó: Claude Opus 4.6 (Thinking)
 
 ---
 
 ## ESTADO GENERAL DEL PROYECTO
 
-### ⚠️ PROBLEMAS CONOCIDOS (arreglar primero)
-1. AUTH ROTO: El registro inserta usuario hardcodeado (seed-mod00.js)
-   en vez de leer el formulario. Register.tsx no conecta con la API.
-   Fix: revisar Register.tsx → POST /api/auth/register → MongoDB.
-2. Login puede no funcionar si el usuario guardado no tiene hash bcrypt
-   generado desde el formulario real.
-
 ### ✅ Completado
 - Estructura de carpetas del proyecto
-- server.js con endpoints básicos de auth
+- server.js unificado con auth robusta (bloqueo fuerza bruta, validaciones)
+- auth-server.js y seed-mod00.js eliminados del repositorio
 - Vite proxy configurado (:8080 → :3001)
 - Archivos de roles y AGENT.md
-- TAREA 0: Fix auth (PRIORIDAD MÁXIMA antes de cualquier ataque)
-- SPRINT COMPLETO TAREA 1: attack_templates.json con 15 módulos
-- SPRINT COMPLETO TAREA 2: local_rules.xml con 15 reglas Wazuh (100499-100513)
-- SPRINT COMPLETO TAREA 3: seed-templates.js funcional (15/15 ✅)
-- SPRINT COMPLETO TAREA 4: Dashboard inicial con datos reales (/dashboard)
-- SPRINT COMPLETO TAREA 5: Dashboard defensivo real con correlación (/defensive)
-- SPRINT COMPLETO TAREA 6: Verificación en Kali en todos los MODs
-- Endpoint /api/stats para KPIs de ataques y health checks
-- Endpoint /api/wazuh/alerts proxy configurado en backend
+- attack_templates.json con 15 módulos (14 + PRIV-002 Kerberos)
+- local_rules.xml con 15 reglas Wazuh (100499-100513)
+- seed-templates.js funcional (15/15 ✅)
+- Dashboard con datos reales (/dashboard) — KPIs, BarChart, tabla operaciones
+- Dashboard defensivo real con correlación (/defensive) — apunta a 10.10.10.49
+- Módulo ofensivo genérico (/offensive) — lee plantillas dinámicas de MongoDB
+- Verificación en Kali documentada en todos los MODs
+- Endpoint /api/stats para KPIs reales de MongoDB
+- Endpoint /api/health para ping a servicios
+- Endpoint /api/wazuh/alerts proxy configurado
+- .env.example completado con todas las variables
+- Login.tsx envía `identifier` para seguridad
+- Register.tsx envía `confirmPassword` para validación server-side
+- Auth con bloqueo: 5 intentos fallidos → cuenta bloqueada 15 min
+- Middleware verifyToken reutilizable en server.js
 
 ### 🔄 EN CURSO
-- Importación de reglas Wazuh al servidor de producción.
+- Importación de reglas Wazuh al servidor 10.10.10.49.
 
 ### 📋 PENDIENTE (en este orden)
 - Importar reglas Wazuh en servidor 10.10.10.49 (esperando confirmación del usuario).
@@ -45,7 +45,7 @@ Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.49 p
 
 ## DECISIONES TOMADAS (no revertir)
 - Wireless eliminado del scope (no hay hardware físico)
-- 14 módulos: 10 LAN/Scapy + 2 Brute Force + 2 PrivEsc
+- 15 módulos: 10 LAN/Scapy + 2 Brute Force + 2 PrivEsc + 1 Kerberos
 - ARP Spoofing split en LAN-005a (injection) y LAN-005b (MitM)
 - AttackModule.tsx es genérico (no un componente por ataque)
 - Módulo defensivo mantiene zonas Indexer + Manager configurables
@@ -55,6 +55,10 @@ Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.49 p
 - PRIV-001: Local (SUID+sudo+cron), PRIV-002: AD (kerbrute+impacket)
 - Reglas Wazuh 100510-100513 para los 4 módulos nuevos
 - Dashboard centralizado utiliza endpoints /api/stats, /api/health y /api/wazuh/alerts.
+- auth-server.js eliminado — toda la auth vive en server.js
+- seed-mod00.js eliminado — usar scripts/seed-templates.js
+- Login acepta 'identifier' o 'username' para compatibilidad
+- command_alt mantenido en LAN-001 (el flujo n8n lo usa)
 
 ---
 
