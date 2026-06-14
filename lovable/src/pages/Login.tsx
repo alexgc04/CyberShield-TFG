@@ -27,7 +27,7 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ username: identifier, password }),
+        body: JSON.stringify({ identifier, password }),
       });
 
       const data = await res.json();

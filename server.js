@@ -15,6 +15,11 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key";
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// ── SEGURIDAD: Constantes de bloqueo por fuerza bruta ──
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+const BCRYPT_ROUNDS = 12;
+
 if (!MONGODB_URI) {
   console.error("❌ MONGODB_URI no definida en el archivo .env");
   process.exit(1);
@@ -37,6 +42,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: "analyst" },
   active: { type: Boolean, default: true },
   failed_attempts: { type: Number, default: 0 },
+  locked_until: { type: Date, default: null },
+  last_login: { type: Date, default: null },
   created_at: { type: Date, default: Date.now }
 });
 const User = mongoose.model("User", userSchema, "users");
@@ -64,56 +71,130 @@ mongoose.connect(MONGODB_URI)
     process.exit(1);
   });
 
+// ── MIDDLEWARE: Verificar JWT ──
+function verifyToken(req, res, next) {
+  const token = req.cookies?.cybershield_token;
+  if (!token) {
+    return res.status(401).json({ success: false, error: "No autorizado. Inicia sesión." });
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.clearCookie("cybershield_token");
+    return res.status(401).json({ success: false, error: "Sesión expirada. Inicia sesión de nuevo." });
+  }
+}
+
 // ── RUTAS API ──
 
 // REGISTER
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) {
-      return res.status(400).json({ success: false, error: "Faltan campos" });
+    const { username, email, password, confirmPassword } = req.body;
+
+    // Validaciones
+    if (!username || !email || !password || !confirmPassword) {
+      return res.status(400).json({ success: false, error: "Todos los campos son obligatorios." });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, error: "Las contraseñas no coinciden." });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, error: "La contraseña debe tener al menos 8 caracteres." });
+    }
+    if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+      return res.status(400).json({ success: false, error: "Email no válido." });
+    }
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {
+      return res.status(400).json({ success: false, error: "El usuario debe tener entre 3-20 caracteres (letras, números, _ -)." });
     }
 
-    const exists = await User.findOne({ email });
+    // Verificar duplicados (username O email)
+    const exists = await User.findOne({
+      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }]
+    });
     if (exists) {
-      return res.status(400).json({ success: false, error: "El email ya está registrado" });
+      return res.status(409).json({ success: false, error: "El usuario o email ya existe." });
     }
 
-    const password_hash = await bcrypt.hash(password, 12);
+    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const newUser = new User({ 
-      username, 
-      email, 
+      username: username.toLowerCase(), 
+      email: email.toLowerCase(), 
       password_hash,
       role: "analyst",
       created_at: new Date(),
       active: true,
-      failed_attempts: 0
+      failed_attempts: 0,
+      locked_until: null,
+      last_login: null
     });
     await newUser.save();
 
-    res.json({ success: true });
+    console.log(`[AUTH] Nuevo usuario registrado: ${username}`);
+    res.status(201).json({ success: true, message: "Cuenta creada correctamente." });
   } catch (err) {
     console.error("Register Error:", err);
-    res.status(500).json({ success: false, error: "Error en el servidor" });
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
   }
 });
 
 // LOGIN
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { username, password } = req.body; // 'username' puede ser email
+    // Aceptar 'identifier' o 'username' para compatibilidad
+    const identifier = req.body.identifier || req.body.username;
+    const { password } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, error: "Usuario/email y contraseña son obligatorios." });
+    }
+
     const user = await User.findOne({ 
-      $or: [{ username: username }, { email: username }] 
+      $or: [{ username: identifier.toLowerCase() }, { email: identifier.toLowerCase() }] 
     });
 
+    // Mensaje genérico para no revelar si falla user o password
+    const GENERIC_ERROR = "Credenciales incorrectas.";
+
     if (!user) {
-      return res.status(401).json({ success: false, error: "Credenciales inválidas" });
+      return res.status(401).json({ success: false, error: GENERIC_ERROR });
+    }
+
+    // Comprobar bloqueo por fuerza bruta
+    if (user.locked_until && new Date() < new Date(user.locked_until)) {
+      const remaining = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+      return res.status(423).json({
+        success: false,
+        error: `Cuenta bloqueada. Inténtalo de nuevo en ${remaining} minutos.`
+      });
     }
 
     const validPass = await bcrypt.compare(password, user.password_hash);
     if (!validPass) {
-      return res.status(401).json({ success: false, error: "Credenciales inválidas" });
+      // Incrementar intentos fallidos
+      const attempts = (user.failed_attempts || 0) + 1;
+      const update = { failed_attempts: attempts };
+
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        update.locked_until = new Date(Date.now() + LOCKOUT_MINUTES * 60000);
+        console.log(`[AUTH] Cuenta bloqueada: ${user.username} (${attempts} intentos fallidos)`);
+      }
+
+      await User.updateOne({ _id: user._id }, { $set: update });
+      return res.status(401).json({ success: false, error: GENERIC_ERROR });
     }
+
+    // Login exitoso: resetear intentos y actualizar last_login
+    await User.updateOne({ _id: user._id }, {
+      $set: {
+        failed_attempts: 0,
+        locked_until: null,
+        last_login: new Date(),
+      }
+    });
 
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },
@@ -129,10 +210,14 @@ app.post("/api/auth/login", async (req, res) => {
       path: "/",
     });
 
-    res.json({ success: true, user: { username: user.username, role: user.role } });
+    console.log(`[AUTH] Login exitoso: ${user.username} (${user.role})`);
+    res.json({
+      success: true,
+      user: { username: user.username, email: user.email, role: user.role }
+    });
   } catch (err) {
     console.error("Login Error:", err);
-    res.status(500).json({ success: false, error: "Error en el servidor" });
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
   }
 });
 
@@ -142,19 +227,24 @@ app.post("/api/auth/logout", (req, res) => {
   res.json({ success: true });
 });
 
-// ME
-app.get("/api/auth/me", async (req, res) => {
+// ME (ruta protegida con middleware)
+app.get("/api/auth/me", verifyToken, async (req, res) => {
   try {
-    const token = req.cookies.cybershield_token;
-    if (!token) return res.status(401).json({ success: false, error: "No autorizado" });
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: "Usuario no encontrado." });
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.userId);
-    if (!user) return res.status(401).json({ success: false, error: "No autorizado" });
-
-    res.json({ success: true, username: user.username, role: user.role, email: user.email });
+    res.json({
+      success: true,
+      user: {
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at,
+        last_login: user.last_login,
+      }
+    });
   } catch (err) {
-    res.status(401).json({ success: false, error: "No autorizado" });
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
   }
 });
 

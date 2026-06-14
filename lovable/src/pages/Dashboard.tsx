@@ -77,10 +77,10 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  const chartData = stats?.attacksByModule.map(m => ({
+  const chartData = (stats?.attacksByModule || []).map(m => ({
     name: m._id,
     ataques: m.count
-  })) || [];
+  }));
 
   return (
     <div className="relative">
