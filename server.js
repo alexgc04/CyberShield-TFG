@@ -9,6 +9,12 @@ const jwt = require("jsonwebtoken");
 const path = require("path");
 const { Client } = require("ssh2");
 const PDFDocument = require("pdfkit");
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -34,17 +40,99 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// 1. Sanitización NoSQL (elimina $, . de todos los inputs)
+app.use(mongoSanitize());
+
+// 2. Rate limiting global (todas las rutas /api)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 200,                   // máx 200 req por IP en 15min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiadas peticiones. Espera 15 minutos.' }
+});
+app.use('/api', globalLimiter);
+
+// 3. Rate limiting estricto SOLO para auth (anti fuerza bruta HTTP)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,                    // máx 10 intentos de login/register por IP en 15min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Demasiados intentos. Espera 15 minutos.' }
+});
+
+// 4. express-session (SOLO para el flujo OAuth de Google)
+app.use(session({
+  secret: process.env.SESSION_SECRET || JWT_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({ mongoUrl: MONGODB_URI }),
+  cookie: { secure: false, maxAge: 5 * 60 * 1000 } // 5min, solo para OAuth callback
+}));
+
+// 5. Passport (SOLO Google OAuth)
+app.use(passport.initialize());
+app.use(passport.session());
+passport.serializeUser((user, done) => done(null, user._id.toString()));
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch(e) { done(e); }
+});
+
+// ── GOOGLE STRATEGY ──
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID:     process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL:  process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/api/auth/google/callback',
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await User.findOne({ google_id: profile.id });
+      if (!user) {
+        // Buscar por email por si ya tiene cuenta local
+        const email = profile.emails?.[0]?.value;
+        user = email ? await User.findOne({ email }) : null;
+        if (user) {
+          // Vincular cuenta local con Google
+          user.google_id = profile.id;
+          user.auth_provider = 'google';
+          await user.save();
+        } else {
+          // Crear usuario nuevo desde Google
+          user = await User.create({
+            username: profile.displayName.replace(/\s+/g,'').toLowerCase().slice(0,20) + '' + profile.id.slice(-4),
+            email: email || `google_${profile.id}@cybershield.local`,
+            auth_provider: 'google',
+            google_id: profile.id,
+            role: 'analyst',
+            active: true,
+            failed_attempts: 0,
+          });
+        }
+      }
+      return done(null, user);
+    } catch(e) { return done(e); }
+  }));
+} else {
+  console.warn('[AUTH] Google OAuth desactivado: GOOGLE_CLIENT_ID no definido en .env');
+}
+
 // ── MONGOOSE SCHEMA ──
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password_hash: { type: String, required: true },
+  password_hash: { type: String, required: false },
   role: { type: String, default: "analyst" },
   active: { type: Boolean, default: true },
   failed_attempts: { type: Number, default: 0 },
   locked_until: { type: Date, default: null },
   last_login: { type: Date, default: null },
-  created_at: { type: Date, default: Date.now }
+  created_at: { type: Date, default: Date.now },
+  google_id: { type: String, sparse: true, unique: true },
+  auth_provider: { type: String, enum: ['local','google'], default: 'local' }
 });
 const User = mongoose.model("User", userSchema, "users");
 
@@ -65,7 +153,21 @@ const AttackTemplate = mongoose.model("AttackTemplate", attackTemplateSchema, "a
 
 // ── CONEXIÓN BD ──
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log("✅ Conectado a MongoDB Atlas (Mongoose)"))
+  .then(async () => {
+    console.log("✅ Conectado a MongoDB Atlas (Mongoose)");
+    // Limpiar índices obsoletos que causan errores E11000
+    try {
+      const db = mongoose.connection.db;
+      const atCol = db.collection('attack_templates');
+      const indexes = await atCol.indexes();
+      for (const idx of indexes) {
+        if (idx.name === 'attack_id_1') {
+          await atCol.dropIndex('attack_id_1');
+          console.log('🧹 Índice obsoleto attack_id_1 eliminado de attack_templates');
+        }
+      }
+    } catch (e) { /* índice no existe, ok */ }
+  })
   .catch(err => {
     console.error("❌ Error conectando a MongoDB:", err);
     process.exit(1);
@@ -90,9 +192,12 @@ function verifyToken(req, res, next) {
 // ── RUTAS API ──
 
 // REGISTER
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authLimiter, async (req, res) => {
   try {
-    const { username, email, password, confirmPassword } = req.body;
+    const username = (req.body.username || '').trim().toLowerCase();
+    const email    = (req.body.email    || '').trim().toLowerCase();
+    const password = (req.body.password || '').trim();
+    const confirmPassword = (req.body.confirmPassword || '').trim();
 
     // Validaciones
     if (!username || !email || !password || !confirmPassword) {
@@ -104,37 +209,31 @@ app.post("/api/auth/register", async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({ success: false, error: "La contraseña debe tener al menos 8 caracteres." });
     }
-    if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+    if (!/^[a-zA-Z0-9_\-]{3,20}$/.test(username)) {
+      return res.status(400).json({ success: false, error: "Usuario: 3-20 caracteres, solo letras, números, _ o -." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ success: false, error: "Email no válido." });
     }
-    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(username)) {
-      return res.status(400).json({ success: false, error: "El usuario debe tener entre 3-20 caracteres (letras, números, _ -)." });
-    }
 
-    // Verificar duplicados (username O email)
-    const exists = await User.findOne({
-      $or: [{ username: username.toLowerCase() }, { email: email.toLowerCase() }]
-    });
+    const exists = await User.findOne({ $or: [{ username }, { email }] });
     if (exists) {
-      return res.status(409).json({ success: false, error: "El usuario o email ya existe." });
+      return res.status(409).json({ success: false, error: "Usuario o email ya registrado." });
     }
 
-    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const newUser = new User({ 
-      username: username.toLowerCase(), 
-      email: email.toLowerCase(), 
-      password_hash,
-      role: "analyst",
-      created_at: new Date(),
-      active: true,
-      failed_attempts: 0,
-      locked_until: null,
-      last_login: null
+    const password_hash = await bcrypt.hash(password, 12);
+    await User.create({ 
+      username, 
+      email, 
+      password_hash, 
+      auth_provider: 'local',
+      role: 'analyst', 
+      active: true, 
+      failed_attempts: 0 
     });
-    await newUser.save();
 
-    console.log(`[AUTH] Nuevo usuario registrado: ${username}`);
-    res.status(201).json({ success: true, message: "Cuenta creada correctamente." });
+    console.log(`[AUTH] Nuevo usuario: ${username}`);
+    res.status(201).json({ success: true, message: "Cuenta creada. Ahora puedes iniciar sesión." });
   } catch (err) {
     console.error("Register Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });
@@ -142,84 +241,97 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 // LOGIN
-app.post("/api/auth/login", async (req, res) => {
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS   = 15 * 60 * 1000; // 15 min
+
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    // Aceptar 'identifier' o 'username' para compatibilidad
-    const identifier = req.body.identifier || req.body.username;
-    const { password } = req.body;
+    const identifier = (req.body.username || req.body.identifier || '').trim().toLowerCase();
+    const password   = (req.body.password || '').trim();
 
-    if (!identifier || !password) {
-      return res.status(400).json({ success: false, error: "Usuario/email y contraseña son obligatorios." });
-    }
+    if (!identifier || !password)
+      return res.status(400).json({ success: false, error: 'Credenciales incompletas.' });
 
-    const user = await User.findOne({ 
-      $or: [{ username: identifier.toLowerCase() }, { email: identifier.toLowerCase() }] 
-    });
+    const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] });
 
-    // Mensaje genérico para no revelar si falla user o password
-    const GENERIC_ERROR = "Credenciales incorrectas.";
+    // Mensaje genérico (no revela si falla el user o la pass)
+    const FAIL = { success: false, error: 'Credenciales incorrectas.' };
 
-    if (!user) {
-      return res.status(401).json({ success: false, error: GENERIC_ERROR });
-    }
+    if (!user) return res.status(401).json(FAIL);
 
-    // Comprobar bloqueo por fuerza bruta
-    if (user.locked_until && new Date() < new Date(user.locked_until)) {
-      const remaining = Math.ceil((new Date(user.locked_until) - new Date()) / 60000);
+    // Comprobar bloqueo por intentos
+    if (user.locked_until && new Date() < user.locked_until) {
+      const mins = Math.ceil((user.locked_until - Date.now()) / 60000);
       return res.status(423).json({
         success: false,
-        error: `Cuenta bloqueada. Inténtalo de nuevo en ${remaining} minutos.`
+        error: `Cuenta bloqueada. Inténtalo en ${mins} minutos.`
       });
     }
 
-    const validPass = await bcrypt.compare(password, user.password_hash);
-    if (!validPass) {
-      // Incrementar intentos fallidos
+    // Verificar contraseña (usuarios Google no tienen password_hash)
+    if (!user.password_hash)
+      return res.status(401).json({ success: false, error: 'Esta cuenta usa Google Sign-In.' });
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
       const attempts = (user.failed_attempts || 0) + 1;
       const update = { failed_attempts: attempts };
-
-      if (attempts >= MAX_FAILED_ATTEMPTS) {
-        update.locked_until = new Date(Date.now() + LOCKOUT_MINUTES * 60000);
-        console.log(`[AUTH] Cuenta bloqueada: ${user.username} (${attempts} intentos fallidos)`);
+      if (attempts >= MAX_ATTEMPTS) {
+        update.locked_until = new Date(Date.now() + LOCKOUT_MS);
+        console.warn(`[AUTH] Cuenta bloqueada: ${user.username} (${attempts} intentos)`);
       }
-
-      await User.updateOne({ _id: user._id }, { $set: update });
-      return res.status(401).json({ success: false, error: GENERIC_ERROR });
+      await User.findByIdAndUpdate(user._id, { $set: update });
+      return res.status(401).json(FAIL);
     }
 
-    // Login exitoso: resetear intentos y actualizar last_login
-    await User.updateOne({ _id: user._id }, {
-      $set: {
-        failed_attempts: 0,
-        locked_until: null,
-        last_login: new Date(),
-      }
+    // Login correcto: resetear contadores
+    await User.findByIdAndUpdate(user._id, {
+      $set: { failed_attempts: 0, locked_until: null, last_login: new Date() }
     });
 
     const token = jwt.sign(
       { userId: user._id, username: user.username, role: user.role },
       JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: '24h' }
     );
-
-    res.cookie("cybershield_token", token, {
-      httpOnly: true,
-      secure: false, // En desarrollo local sobre HTTP
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-      path: "/",
+    res.cookie('cybershield_token', token, {
+      httpOnly: true, secure: false, sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, path: '/'
     });
-
-    console.log(`[AUTH] Login exitoso: ${user.username} (${user.role})`);
-    res.json({
-      success: true,
-      user: { username: user.username, email: user.email, role: user.role }
-    });
-  } catch (err) {
-    console.error("Login Error:", err);
-    res.status(500).json({ success: false, error: "Error interno del servidor." });
+    res.json({ success: true, user: { username: user.username, role: user.role } });
+  } catch(err) {
+    console.error('Login Error:', err);
+    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
   }
 });
+
+// GOOGLE OAUTH
+app.get('/api/auth/google/available', (req, res) => {
+  res.json({
+    available: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+  });
+});
+
+app.get('/api/auth/google',
+  passport.authenticate('google', { scope: ['profile','email'] })
+);
+
+app.get('/api/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/login?error=google_failed', session: true }),
+  (req, res) => {
+    // Generar JWT igual que el login local
+    const token = jwt.sign(
+      { userId: req.user._id, username: req.user.username, role: req.user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    res.cookie('cybershield_token', token, {
+      httpOnly: true, secure: false, sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, path: '/'
+    });
+    res.redirect('/dashboard');
+  }
+);
 
 // LOGOUT
 app.post("/api/auth/logout", (req, res) => {
@@ -313,19 +425,24 @@ app.get("/api/health", async (req, res) => {
 
   // Kali SSH — intento de conexión rápida
   try {
-    const conn = new Client();
-    results.kali = await new Promise((resolve) => {
-      const timer = setTimeout(() => { conn.end(); resolve(false); }, 3000);
-      conn.on('ready', () => { clearTimeout(timer); conn.end(); resolve(true); })
-          .on('error', () => { clearTimeout(timer); resolve(false); })
-          .connect({
-            host: process.env.SSH_HOST,
-            port: process.env.SSH_PORT || 22,
-            username: process.env.SSH_USER,
-            password: process.env.SSH_PASS,
-            readyTimeout: 3000
-          });
-    });
+    if (!process.env.SSH_HOST) {
+      results.kali = false;
+      console.warn('[HEALTH] SSH_HOST no definido en .env');
+    } else {
+      const conn = new Client();
+      results.kali = await new Promise((resolve) => {
+        const timer = setTimeout(() => { conn.end(); resolve(false); }, 3000);
+        conn.on('ready', () => { clearTimeout(timer); conn.end(); resolve(true); })
+            .on('error', () => { clearTimeout(timer); resolve(false); })
+            .connect({
+              host: process.env.SSH_HOST,
+              port: process.env.SSH_PORT || 22,
+              username: process.env.SSH_USER,
+              password: process.env.SSH_PASS,
+              readyTimeout: 3000
+            });
+      });
+    }
   } catch { results.kali = false; }
 
   // Wazuh
@@ -420,7 +537,14 @@ app.get("/api/attacks/templates", async (req, res) => {
   }
 });
 
-app.post("/api/attacks/execute", async (req, res) => {
+// Rate limit para ejecución de ataques (máx 20 por IP en 10min)
+const attackLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: { success: false, error: 'Demasiados ataques en poco tiempo.' }
+});
+
+app.post("/api/attacks/execute", attackLimiter, async (req, res) => {
   try {
     const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
     const n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
