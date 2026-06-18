@@ -37,6 +37,7 @@ Agente que actualizó: Claude Opus 4.6 (Thinking)
 - Bugfix: Orden de inicialización de GoogleStrategy en server.js corregido
 - Bugfix: URL relativa en botones de Google OAuth en Login y Register
 - Limpieza: Desinstalación de bcryptjs (obsoleto)
+- Feature: Sistema completo de recuperación de contraseñas y correos de verificación con nodemailer
 
 ### 🔄 EN CURSO
 - Importación de reglas Wazuh al servidor 10.10.10.49.

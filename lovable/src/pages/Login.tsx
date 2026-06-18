@@ -114,9 +114,14 @@ const Login = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Contraseña
-              </Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                  Contraseña
+                </Label>
+                <Link to="/forgot-password" className="text-xs font-mono text-primary hover:underline">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"

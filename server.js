@@ -15,6 +15,8 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +32,17 @@ if (!MONGODB_URI) {
   console.error("❌ MONGODB_URI no definida en el archivo .env");
   process.exit(1);
 }
+
+// ── CONFIGURACIÓN DE CORREO ──
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: process.env.SMTP_PORT || 465,
+  secure: true, // true para 465, false para otros puertos
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  }
+});
 
 // ── MIDDLEWARE ──
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -88,13 +101,16 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password_hash: { type: String, required: false },
   role: { type: String, default: "analyst" },
-  active: { type: Boolean, default: true },
+  active: { type: Boolean, default: false }, // Se cambia a false por defecto para requerir confirmación
   failed_attempts: { type: Number, default: 0 },
   locked_until: { type: Date, default: null },
   last_login: { type: Date, default: null },
   created_at: { type: Date, default: Date.now },
   google_id: { type: String, sparse: true, unique: true },
-  auth_provider: { type: String, enum: ['local','google'], default: 'local' }
+  auth_provider: { type: String, enum: ['local','google'], default: 'local' },
+  reset_password_token: { type: String, default: null },
+  reset_password_expires: { type: Date, default: null },
+  verify_email_token: { type: String, default: null }
 });
 const User = mongoose.model("User", userSchema, "users");
 
@@ -221,6 +237,7 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
       return res.status(409).json({ success: false, error: "Usuario o email ya registrado." });
     }
 
+    const verify_email_token = crypto.randomBytes(32).toString('hex');
     const password_hash = await bcrypt.hash(password, 12);
     await User.create({ 
       username, 
@@ -228,12 +245,29 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
       password_hash, 
       auth_provider: 'local',
       role: 'analyst', 
-      active: true, 
-      failed_attempts: 0 
+      active: false, 
+      failed_attempts: 0,
+      verify_email_token
     });
 
-    console.log(`[AUTH] Nuevo usuario: ${username}`);
-    res.status(201).json({ success: true, message: "Cuenta creada. Ahora puedes iniciar sesión." });
+    const verifyLink = `http://localhost:8080/verify-email?token=${verify_email_token}`;
+    const mailOptions = {
+      from: process.env.SMTP_FROM || 'cybershield@local.dev',
+      to: email,
+      subject: 'CyberShield - Verifica tu cuenta',
+      html: `<h2>Bienvenido a CyberShield</h2>
+             <p>Por favor, haz clic en el siguiente enlace para verificar tu cuenta y poder acceder:</p>
+             <a href="${verifyLink}">${verifyLink}</a>`
+    };
+
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch(err) {
+      console.warn('No se pudo enviar el email de verificación:', err);
+    }
+
+    console.log(`[AUTH] Nuevo usuario: ${username} (Pendiente verificación)`);
+    res.status(201).json({ success: true, message: "Cuenta creada. Revisa tu correo para verificarla." });
   } catch (err) {
     console.error("Register Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });
@@ -284,6 +318,10 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json(FAIL);
     }
 
+    if (!user.active) {
+      return res.status(403).json({ success: false, error: 'Cuenta inactiva. Por favor verifica tu correo electrónico.' });
+    }
+
     // Login correcto: resetear contadores
     await User.findByIdAndUpdate(user._id, {
       $set: { failed_attempts: 0, locked_until: null, last_login: new Date() }
@@ -332,6 +370,89 @@ app.get('/api/auth/google/callback',
     res.redirect('/dashboard');
   }
 );
+
+// ── EMAIL VERIFICATION ──
+app.post("/api/auth/verify-email", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, error: "Token faltante." });
+
+    const user = await User.findOne({ verify_email_token: token });
+    if (!user) return res.status(400).json({ success: false, error: "Token inválido o expirado." });
+
+    user.active = true;
+    user.verify_email_token = null;
+    await user.save();
+
+    res.json({ success: true, message: "Cuenta verificada con éxito." });
+  } catch (err) {
+    console.error("Verify Email Error:", err);
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
+  }
+});
+
+// ── FORGOT PASSWORD ──
+app.post("/api/auth/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    
+    // Siempre devolvemos success aunque no exista para no revelar cuentas
+    if (!user || user.auth_provider === 'google') {
+      return res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.reset_password_token = resetToken;
+    user.reset_password_expires = Date.now() + 3600000; // 1 hora
+    await user.save();
+
+    const resetLink = `http://localhost:8080/reset-password?token=${resetToken}`;
+    const mailOptions = {
+      from: process.env.SMTP_FROM || 'cybershield@local.dev',
+      to: user.email,
+      subject: 'CyberShield - Recuperación de contraseña',
+      html: `<p>Has solicitado restablecer tu contraseña.</p>
+             <p>Haz clic en el siguiente enlace, o pégalo en tu navegador para completar el proceso:</p>
+             <a href="${resetLink}">${resetLink}</a>
+             <p>Si no solicitaste esto, ignora este correo y tu contraseña se mantendrá sin cambios.</p>`
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
+  } catch (err) {
+    console.error("Forgot Password Error:", err);
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
+  }
+});
+
+// ── RESET PASSWORD ──
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ success: false, error: "Datos incompletos." });
+    if (password.length < 8) return res.status(400).json({ success: false, error: "La contraseña debe tener al menos 8 caracteres." });
+
+    const user = await User.findOne({
+      reset_password_token: token,
+      reset_password_expires: { $gt: Date.now() }
+    });
+
+    if (!user) return res.status(400).json({ success: false, error: "El enlace es inválido o ha expirado." });
+
+    user.password_hash = await bcrypt.hash(password, 12);
+    user.reset_password_token = null;
+    user.reset_password_expires = null;
+    user.failed_attempts = 0; // Opcional, desbloquear si estaba bloqueado
+    user.locked_until = null;
+    await user.save();
+
+    res.json({ success: true, message: "Contraseña actualizada correctamente." });
+  } catch (err) {
+    console.error("Reset Password Error:", err);
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
+  }
+});
 
 // LOGOUT
 app.post("/api/auth/logout", (req, res) => {
