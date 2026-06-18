@@ -34,15 +34,22 @@ if (!MONGODB_URI) {
 }
 
 // ── CONFIGURACIÓN DE CORREO ──
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: process.env.SMTP_PORT || 465,
-  secure: true, // true para 465, false para otros puertos
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  }
-});
+const SMTP_CONFIGURED = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+let transporter = null;
+if (SMTP_CONFIGURED) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 465,
+    secure: true,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    }
+  });
+  console.log('[MAIL] SMTP configurado correctamente.');
+} else {
+  console.warn('[MAIL] SMTP no configurado. Los correos se omiten y las cuentas se activan directamente.');
+}
 
 // ── MIDDLEWARE ──
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -237,37 +244,43 @@ app.post("/api/auth/register", authLimiter, async (req, res) => {
       return res.status(409).json({ success: false, error: "Usuario o email ya registrado." });
     }
 
-    const verify_email_token = crypto.randomBytes(32).toString('hex');
     const password_hash = await bcrypt.hash(password, 12);
-    await User.create({ 
-      username, 
-      email, 
-      password_hash, 
-      auth_provider: 'local',
-      role: 'analyst', 
-      active: false, 
-      failed_attempts: 0,
-      verify_email_token
-    });
 
-    const verifyLink = `http://localhost:8080/verify-email?token=${verify_email_token}`;
-    const mailOptions = {
-      from: process.env.SMTP_FROM || 'cybershield@local.dev',
-      to: email,
-      subject: 'CyberShield - Verifica tu cuenta',
-      html: `<h2>Bienvenido a CyberShield</h2>
-             <p>Por favor, haz clic en el siguiente enlace para verificar tu cuenta y poder acceder:</p>
-             <a href="${verifyLink}">${verifyLink}</a>`
-    };
+    if (SMTP_CONFIGURED) {
+      // Con SMTP: cuenta inactiva hasta verificar por correo
+      const verify_email_token = crypto.randomBytes(32).toString('hex');
+      await User.create({ 
+        username, email, password_hash, 
+        auth_provider: 'local', role: 'analyst', 
+        active: false, failed_attempts: 0,
+        verify_email_token
+      });
 
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch(err) {
-      console.warn('No se pudo enviar el email de verificación:', err);
+      const verifyLink = `http://localhost:8080/verify-email?token=${verify_email_token}`;
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || 'cybershield@local.dev',
+          to: email,
+          subject: 'CyberShield - Verifica tu cuenta',
+          html: `<h2>Bienvenido a CyberShield</h2>
+                 <p>Por favor, haz clic en el siguiente enlace para verificar tu cuenta y poder acceder:</p>
+                 <a href="${verifyLink}">${verifyLink}</a>`
+        });
+      } catch(err) {
+        console.warn('[MAIL] No se pudo enviar el email de verificación:', err.message);
+      }
+      console.log(`[AUTH] Nuevo usuario: ${username} (Pendiente verificación)`);
+      res.status(201).json({ success: true, message: "Cuenta creada. Revisa tu correo para verificarla." });
+    } else {
+      // Sin SMTP: activar cuenta directamente
+      await User.create({ 
+        username, email, password_hash, 
+        auth_provider: 'local', role: 'analyst', 
+        active: true, failed_attempts: 0
+      });
+      console.log(`[AUTH] Nuevo usuario: ${username} (Activo — SMTP no configurado)`);
+      res.status(201).json({ success: true, message: "Cuenta creada correctamente. Ya puedes iniciar sesión." });
     }
-
-    console.log(`[AUTH] Nuevo usuario: ${username} (Pendiente verificación)`);
-    res.status(201).json({ success: true, message: "Cuenta creada. Revisa tu correo para verificarla." });
   } catch (err) {
     console.error("Register Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });
@@ -408,18 +421,27 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     await user.save();
 
     const resetLink = `http://localhost:8080/reset-password?token=${resetToken}`;
-    const mailOptions = {
-      from: process.env.SMTP_FROM || 'cybershield@local.dev',
-      to: user.email,
-      subject: 'CyberShield - Recuperación de contraseña',
-      html: `<p>Has solicitado restablecer tu contraseña.</p>
-             <p>Haz clic en el siguiente enlace, o pégalo en tu navegador para completar el proceso:</p>
-             <a href="${resetLink}">${resetLink}</a>
-             <p>Si no solicitaste esto, ignora este correo y tu contraseña se mantendrá sin cambios.</p>`
-    };
 
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
+    if (SMTP_CONFIGURED) {
+      try {
+        await transporter.sendMail({
+          from: process.env.SMTP_FROM || 'cybershield@local.dev',
+          to: user.email,
+          subject: 'CyberShield - Recuperación de contraseña',
+          html: `<p>Has solicitado restablecer tu contraseña.</p>
+                 <p>Haz clic en el siguiente enlace, o pégalo en tu navegador para completar el proceso:</p>
+                 <a href="${resetLink}">${resetLink}</a>
+                 <p>Si no solicitaste esto, ignora este correo y tu contraseña se mantendrá sin cambios.</p>`
+        });
+      } catch(err) {
+        console.warn('[MAIL] No se pudo enviar el email de recuperación:', err.message);
+      }
+      res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
+    } else {
+      // Sin SMTP: devolver el enlace directamente en la respuesta
+      console.log(`[AUTH] Reset link (SMTP no configurado): ${resetLink}`);
+      res.json({ success: true, message: "SMTP no configurado. Usa este enlace para restablecer tu contraseña:", resetLink });
+    }
   } catch (err) {
     console.error("Forgot Password Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });

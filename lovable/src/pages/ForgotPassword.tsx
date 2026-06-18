@@ -12,6 +12,7 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [resetLink, setResetLink] = useState("");
   const { toast } = useToast();
 
   const handleReset = async (e: React.FormEvent) => {
@@ -36,8 +37,11 @@ const ForgotPassword = () => {
       }
 
       setSuccess(true);
+      if (data.resetLink) {
+        setResetLink(data.resetLink);
+      }
       toast({
-        title: "Correo enviado",
+        title: data.resetLink ? "Enlace generado" : "Correo enviado",
         description: data.message,
       });
       setLoading(false);
@@ -108,12 +112,28 @@ const ForgotPassword = () => {
             </form>
           ) : (
             <div className="bg-primary/10 border border-primary/30 rounded-md p-4 text-center space-y-4">
-              <p className="text-sm font-mono text-primary">
-                Si el correo existe en nuestro sistema, hemos enviado un enlace para recuperar la contraseña.
-              </p>
-              <p className="text-xs font-mono text-muted-foreground">
-                Por favor, revisa tu bandeja de entrada (y la carpeta de spam).
-              </p>
+              {resetLink ? (
+                <>
+                  <p className="text-sm font-mono text-primary">
+                    SMTP no configurado. Usa el siguiente enlace para restablecer tu contraseña:
+                  </p>
+                  <a
+                    href={resetLink}
+                    className="block text-xs font-mono text-blue-400 hover:text-blue-300 underline break-all"
+                  >
+                    {resetLink}
+                  </a>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-mono text-primary">
+                    Si el correo existe en nuestro sistema, hemos enviado un enlace para recuperar la contraseña.
+                  </p>
+                  <p className="text-xs font-mono text-muted-foreground">
+                    Por favor, revisa tu bandeja de entrada (y la carpeta de spam).
+                  </p>
+                </>
+              )}
             </div>
           )}
 
