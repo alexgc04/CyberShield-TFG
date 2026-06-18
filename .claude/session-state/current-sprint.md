@@ -28,6 +28,15 @@ Agente que actualizó: Claude Opus 4.6 (Thinking)
 - Register.tsx envía `confirmPassword` para validación server-side
 - Auth con bloqueo: 5 intentos fallidos → cuenta bloqueada 15 min
 - Middleware verifyToken reutilizable en server.js
+- Fix de login tras registro (.trim() y lowercase añadidos)
+- Rate limiting implementado (global, auth, attacks_execute)
+- Sanitización NoSQL implementada (express-mongo-sanitize)
+- Google OAuth 2.0 integrado condicionalmente con passport y express-session
+- Botón de "Continuar con Google" añadido al frontend de forma dinámica
+- Verificación segura en health check de SSH_HOST
+- Bugfix: Orden de inicialización de GoogleStrategy en server.js corregido
+- Bugfix: URL relativa en botones de Google OAuth en Login y Register
+- Limpieza: Desinstalación de bcryptjs (obsoleto)
 
 ### 🔄 EN CURSO
 - Importación de reglas Wazuh al servidor 10.10.10.49.

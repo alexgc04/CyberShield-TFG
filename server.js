@@ -82,6 +82,22 @@ passport.deserializeUser(async (id, done) => {
   } catch(e) { done(e); }
 });
 
+// ── MONGOOSE SCHEMA ──
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  password_hash: { type: String, required: false },
+  role: { type: String, default: "analyst" },
+  active: { type: Boolean, default: true },
+  failed_attempts: { type: Number, default: 0 },
+  locked_until: { type: Date, default: null },
+  last_login: { type: Date, default: null },
+  created_at: { type: Date, default: Date.now },
+  google_id: { type: String, sparse: true, unique: true },
+  auth_provider: { type: String, enum: ['local','google'], default: 'local' }
+});
+const User = mongoose.model("User", userSchema, "users");
+
 // ── GOOGLE STRATEGY ──
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
@@ -119,22 +135,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 } else {
   console.warn('[AUTH] Google OAuth desactivado: GOOGLE_CLIENT_ID no definido en .env');
 }
-
-// ── MONGOOSE SCHEMA ──
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  password_hash: { type: String, required: false },
-  role: { type: String, default: "analyst" },
-  active: { type: Boolean, default: true },
-  failed_attempts: { type: Number, default: 0 },
-  locked_until: { type: Date, default: null },
-  last_login: { type: Date, default: null },
-  created_at: { type: Date, default: Date.now },
-  google_id: { type: String, sparse: true, unique: true },
-  auth_provider: { type: String, enum: ['local','google'], default: 'local' }
-});
-const User = mongoose.model("User", userSchema, "users");
 
 const attackTemplateSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
