@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Terminal, ArrowLeft } from "lucide-react";
+import { Mail, Terminal, ArrowLeft, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const ForgotPassword = () => {
@@ -12,7 +12,6 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [resetLink, setResetLink] = useState("");
   const { toast } = useToast();
 
   const handleReset = async (e: React.FormEvent) => {
@@ -37,16 +36,9 @@ const ForgotPassword = () => {
       }
 
       setSuccess(true);
-      if (data.resetLink) {
-        setResetLink(data.resetLink);
-      }
-      toast({
-        title: data.resetLink ? "Enlace generado" : "Correo enviado",
-        description: data.message,
-      });
       setLoading(false);
     } catch {
-      setError("No se pudo conectar con el servidor.");
+      setError("No se pudo conectar con el servidor. Asegúrate de que el backend está en marcha.");
       setLoading(false);
     }
   };
@@ -63,15 +55,21 @@ const ForgotPassword = () => {
         <CardHeader className="space-y-1 pb-4">
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/30 glow-green">
-              <Mail className="w-8 h-8 text-primary" />
+              {success ? (
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              ) : (
+                <Mail className="w-8 h-8 text-primary" />
+              )}
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-center font-mono uppercase tracking-wider text-primary">
-            RECUPERAR ACCESO
+            {success ? "CORREO ENVIADO" : "RECUPERAR ACCESO"}
           </CardTitle>
-          <p className="text-center text-sm text-muted-foreground font-mono">
-            Introduce tu correo para recibir un enlace de recuperación.
-          </p>
+          {!success && (
+            <p className="text-center text-sm text-muted-foreground font-mono">
+              Introduce tu correo para recibir un enlace de recuperación.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           {!success ? (
@@ -111,29 +109,19 @@ const ForgotPassword = () => {
               </Button>
             </form>
           ) : (
-            <div className="bg-primary/10 border border-primary/30 rounded-md p-4 text-center space-y-4">
-              {resetLink ? (
-                <>
-                  <p className="text-sm font-mono text-primary">
-                    SMTP no configurado. Usa el siguiente enlace para restablecer tu contraseña:
-                  </p>
-                  <a
-                    href={resetLink}
-                    className="block text-xs font-mono text-blue-400 hover:text-blue-300 underline break-all"
-                  >
-                    {resetLink}
-                  </a>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-mono text-primary">
-                    Si el correo existe en nuestro sistema, hemos enviado un enlace para recuperar la contraseña.
-                  </p>
-                  <p className="text-xs font-mono text-muted-foreground">
-                    Por favor, revisa tu bandeja de entrada (y la carpeta de spam).
-                  </p>
-                </>
-              )}
+            <div className="space-y-4 text-center">
+              <div className="bg-primary/10 border border-primary/30 rounded-md p-6 space-y-3">
+                <p className="text-sm font-mono text-primary">
+                  Hemos enviado un enlace de recuperación a:
+                </p>
+                <p className="text-sm font-mono text-white font-bold">
+                  {email}
+                </p>
+                <p className="text-xs font-mono text-muted-foreground mt-4">
+                  Revisa tu bandeja de entrada y haz clic en el botón del correo para restablecer tu contraseña.
+                  Si no lo ves, revisa la carpeta de spam.
+                </p>
+              </div>
             </div>
           )}
 
