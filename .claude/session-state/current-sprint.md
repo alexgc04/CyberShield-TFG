@@ -61,6 +61,15 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
   - Actualizado `seed-templates.js` con funcionalidad de limpieza de plantillas huérfanas en MongoDB.
   - Verificación cruzada automática (JSON vs XML) superada con éxito (0 errores).
 
+- **Sprint 2: Rediseño Visual, Consola Interactiva y QA-TESTER ✅**
+  - Rediseñado por completo el Módulo Ofensivo (`Offensive.tsx`) con filtros por categorías y tarjetas premium de riesgo (luminosas).
+  - Creado modal de configuración dinámico y reactivo para los parámetros de los ataques.
+  - Desarrollada terminal Linux interactiva funcional con línea de comandos (`help`, `clear`, `status`, `list`, `run <id>`), buffer de logs, simulación SSH y botón de descarga directa de PDF.
+  - Integrado el rol de `QA-Tester` (`docs/agents/QA-TESTER.md`) en la metodología de la agencia.
+  - Documentados flujos de n8n en `docs/AGENCY.md` (unificando `N8N.md`).
+  - Implementada suite de pruebas unitarias en `lovable/src/test/wazuhService.test.ts` con paso exitoso en Vitest.
+
+
 ### 📋 PENDIENTE (en este orden)
 - Importar reglas Wazuh en servidor 10.10.10.49
 - Configuración de SMTP_PASS con Contraseña de Aplicación de Google (pendiente del usuario)
