@@ -10,7 +10,6 @@ const path = require("path");
 const { Client } = require("ssh2");
 const PDFDocument = require("pdfkit");
 const rateLimit = require('express-rate-limit');
-const mongoSanitize = require('express-mongo-sanitize');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const passport = require('passport');
@@ -24,8 +23,8 @@ const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key";
 const MONGODB_URI = process.env.MONGODB_URI;
 
 // ── SEGURIDAD: Constantes de bloqueo por fuerza bruta ──
-const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 15 * 60 * 1000; // 15 min
 const BCRYPT_ROUNDS = 12;
 
 if (!MONGODB_URI) {
@@ -47,20 +46,18 @@ if (process.env.SMTP_USER && process.env.SMTP_PASS) {
   });
   console.log(`[MAIL] SMTP configurado (${process.env.SMTP_USER})`);
 } else {
-  console.warn('[MAIL] ⚠️ SMTP_USER/SMTP_PASS no configurados. Usando modo simulado (los enlaces aparecerán en consola).');
+  console.warn('[MAIL] ⚠️ SMTP no configurado. Modo simulado activo (enlaces en consola).');
   transporter = {
     sendMail: async (mailOptions) => {
       console.log('\n========================================================');
-      console.log(`📧 SIMULACIÓN DE CORREO (Para: ${mailOptions.to})`);
-      console.log(`   Asunto: ${mailOptions.subject}`);
+      console.log(`[MAIL SIMULADO] Para: ${mailOptions.to}`);
+      console.log(`[MAIL SIMULADO] Asunto: ${mailOptions.subject}`);
       const linkMatch = mailOptions.html && mailOptions.html.match(/href="([^"]+)"/);
       if (linkMatch && linkMatch[1]) {
-        console.log(`   👉 ENLACE ACCIÓN: ${linkMatch[1]}`);
-      } else {
-        console.log(`   Contenido: Mensaje enviado exitosamente en modo simulación.`);
+        console.log(`[MAIL SIMULADO] 👉 ENLACE: ${linkMatch[1]}`);
       }
       console.log('========================================================\n');
-      return { messageId: 'simulated-id' };
+      return { messageId: 'simulated-' + Date.now() };
     }
   };
 }
@@ -74,38 +71,35 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// 1. Sanitización NoSQL (temporalmente deshabilitado por incompatibilidad con Express 5)
-// app.use(mongoSanitize());
-
-// 2. Rate limiting global (todas las rutas /api)
+// Rate limiting global (todas las rutas /api)
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 200,                   // máx 200 req por IP en 15min
+  windowMs: 15 * 60 * 1000,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Demasiadas peticiones. Espera 15 minutos.' }
 });
 app.use('/api', globalLimiter);
 
-// 3. Rate limiting estricto SOLO para auth (anti fuerza bruta HTTP)
+// Rate limiting estricto SOLO para auth (anti fuerza bruta HTTP)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,                    // máx 10 intentos de login/register por IP en 15min
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Demasiados intentos. Espera 15 minutos.' }
 });
 
-// 4. express-session (SOLO para el flujo OAuth de Google)
+// express-session (SOLO para el flujo OAuth de Google)
 app.use(session({
   secret: process.env.SESSION_SECRET || JWT_SECRET,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({ mongoUrl: MONGODB_URI }),
-  cookie: { secure: false, maxAge: 5 * 60 * 1000 } // 5min, solo para OAuth callback
+  cookie: { secure: false, maxAge: 5 * 60 * 1000 }
 }));
 
-// 5. Passport (SOLO Google OAuth)
+// Passport (SOLO Google OAuth)
 app.use(passport.initialize());
 app.use(passport.session());
 passport.serializeUser((user, done) => done(null, user._id.toString()));
@@ -116,19 +110,19 @@ passport.deserializeUser(async (id, done) => {
   } catch(e) { done(e); }
 });
 
-// ── MONGOOSE SCHEMA ──
+// ── MONGOOSE SCHEMAS ──
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password_hash: { type: String, required: false },
-  role: { type: String, default: "analyst" },
-  active: { type: Boolean, default: false }, // Se cambia a false por defecto para requerir confirmación
+  password_hash: { type: String },
+  role: { type: String, default: 'analyst' },
+  active: { type: Boolean, default: false },
   failed_attempts: { type: Number, default: 0 },
   locked_until: { type: Date, default: null },
   last_login: { type: Date, default: null },
   created_at: { type: Date, default: Date.now },
-  google_id: { type: String, sparse: true, unique: true },
-  auth_provider: { type: String, enum: ['local','google'], default: 'local' },
+  google_id: { type: String, sparse: true },
+  auth_provider: { type: String, default: 'local' },
   reset_password_token: { type: String, default: null },
   reset_password_expires: { type: Date, default: null },
   verify_email_token: { type: String, default: null }
@@ -145,16 +139,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     try {
       let user = await User.findOne({ google_id: profile.id });
       if (!user) {
-        // Buscar por email por si ya tiene cuenta local
         const email = profile.emails?.[0]?.value;
         user = email ? await User.findOne({ email }) : null;
         if (user) {
-          // Vincular cuenta local con Google
           user.google_id = profile.id;
           user.auth_provider = 'google';
           await user.save();
         } else {
-          // Crear usuario nuevo desde Google
           user = await User.create({
             username: profile.displayName.replace(/\s+/g,'').toLowerCase().slice(0,20) + '' + profile.id.slice(-4),
             email: email || `google_${profile.id}@cybershield.local`,
@@ -226,121 +217,174 @@ function verifyToken(req, res, next) {
   }
 }
 
-// ── RUTAS API ──
+// ══════════════════════════════════════
+// ── RUTAS AUTH ──
+// ══════════════════════════════════════
 
 // REGISTER
-app.post("/api/auth/register", authLimiter, async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const username = (req.body.username || '').trim().toLowerCase();
     const email    = (req.body.email    || '').trim().toLowerCase();
     const password = (req.body.password || '').trim();
     const confirmPassword = (req.body.confirmPassword || '').trim();
 
-    // Validaciones
-    if (!username || !email || !password || !confirmPassword) {
-      return res.status(400).json({ success: false, error: "Todos los campos son obligatorios." });
-    }
-    if (password !== confirmPassword) {
-      return res.status(400).json({ success: false, error: "Las contraseñas no coinciden." });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ success: false, error: "La contraseña debe tener al menos 8 caracteres." });
-    }
-    if (!/^[a-zA-Z0-9_\-]{3,20}$/.test(username)) {
-      return res.status(400).json({ success: false, error: "Usuario: 3-20 caracteres, solo letras, números, _ o -." });
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, error: "Email no válido." });
-    }
+    // ── Validaciones ──
+    if (!username || !email || !password || !confirmPassword)
+      return res.status(400).json({ success: false, error: 'Todos los campos son obligatorios.' });
+    if (password !== confirmPassword)
+      return res.status(400).json({ success: false, error: 'Las contraseñas no coinciden.' });
+    if (password.length < 8)
+      return res.status(400).json({ success: false, error: 'La contraseña debe tener al menos 8 caracteres.' });
+    if (!/^[a-zA-Z0-9_\-]{3,20}$/.test(username))
+      return res.status(400).json({ success: false, error: 'Usuario: 3-20 caracteres, solo letras, números, _ o -.' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      return res.status(400).json({ success: false, error: 'Formato de email no válido.' });
 
-    const exists = await User.findOne({ $or: [{ username }, { email }] });
-    if (exists) {
-      return res.status(409).json({ success: false, error: "Usuario o email ya registrado." });
-    }
+    // ── Duplicados (consultas separadas para mensaje específico) ──
+    const existsUsername = await User.findOne({ username });
+    if (existsUsername)
+      return res.status(409).json({ success: false, error: 'Ese nombre de usuario ya está en uso.' });
 
-    const password_hash = await bcrypt.hash(password, 12);
+    const existsEmail = await User.findOne({ email });
+    if (existsEmail)
+      return res.status(409).json({ success: false, error: 'Ese email ya está registrado.' });
+
+    // ── Crear usuario en MongoDB ── (SIEMPRE antes del email)
+    const password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const verify_email_token = crypto.randomBytes(32).toString('hex');
-    await User.create({ 
-      username, email, password_hash, 
-      auth_provider: 'local', role: 'analyst', 
-      active: false, failed_attempts: 0,
-      verify_email_token
+
+    await User.create({
+      username, email, password_hash,
+      auth_provider: 'local', role: 'analyst',
+      active: false,
+      failed_attempts: 0,
+      verify_email_token,
+      locked_until: null
     });
 
-    // Enviar correo de verificación
+    console.log(`[AUTH] ✅ Usuario creado en MongoDB: ${username} (pendiente verificación)`);
+
+    // ── Enviar correo (operación independiente — si falla, el usuario YA está guardado) ──
     const verifyLink = `http://localhost:8080/verify-email?token=${verify_email_token}`;
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: 'CyberShield — Verifica tu cuenta',
-      html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;background:#0a0a0a;color:#e0e0e0;border:1px solid #00ff41;border-radius:8px">
-        <h2 style="color:#00ff41;text-align:center">🛡️ CyberShield</h2>
-        <p>Hola <strong>${username}</strong>,</p>
-        <p>Gracias por registrarte. Haz clic en el botón para verificar tu cuenta:</p>
-        <div style="text-align:center;margin:20px 0">
-          <a href="${verifyLink}" style="background:#00ff41;color:#0a0a0a;padding:12px 24px;text-decoration:none;border-radius:4px;font-weight:bold">VERIFICAR CUENTA</a>
-        </div>
-        <p style="font-size:12px;color:#888">Si no creaste esta cuenta, ignora este correo.</p>
-      </div>`
+
+    try {
+      await transporter.sendMail({
+        from: '"CyberShield PRO" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+        to: email,
+        subject: '🛡️ CyberShield — Verifica tu cuenta',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;
+                      padding:24px;background:#0a0a0a;color:#e0e0e0;
+                      border:1px solid #00ff41;border-radius:8px">
+            <h2 style="color:#00ff41;text-align:center;font-family:monospace;
+                       letter-spacing:2px">🛡️ CYBERSHIELD PRO</h2>
+            <p>Hola <strong style="color:#00ff41">${username}</strong>,</p>
+            <p>Tu cuenta ha sido creada. Haz clic en el botón para activarla:</p>
+            <div style="text-align:center;margin:28px 0">
+              <a href="${verifyLink}"
+                 style="background:#00ff41;color:#0a0a0a;padding:14px 28px;
+                        text-decoration:none;border-radius:4px;font-weight:bold;
+                        font-family:monospace;letter-spacing:1px">
+                ▶ VERIFICAR CUENTA
+              </a>
+            </div>
+            <p style="font-size:12px;color:#666;margin-top:24px">
+              Si no creaste esta cuenta, ignora este correo.<br>
+              Este enlace caduca en 24 horas.
+            </p>
+            <hr style="border:1px solid #1a1a1a;margin:20px 0">
+            <p style="font-size:11px;color:#444;text-align:center">
+              CyberShield ASV — TFG UCLM 2025/26
+            </p>
+          </div>`
+      });
+      console.log(`[MAIL] ✅ Correo de verificación enviado a: ${email}`);
+    } catch (mailErr) {
+      // El usuario ya está en MongoDB — el email falló pero no es crítico
+      console.error('[MAIL] ❌ Error enviando correo:', mailErr.message);
+      console.log('\n' + '='.repeat(60));
+      console.log('📧 ENLACE DE VERIFICACIÓN (falló el envío, úsalo manualmente):');
+      console.log(`   Usuario: ${username}`);
+      console.log(`   Enlace:  ${verifyLink}`);
+      console.log('='.repeat(60) + '\n');
+
+      return res.status(201).json({
+        success: true,
+        mailFailed: true,
+        message: 'Cuenta creada, pero el correo de verificación no se pudo enviar. ' +
+                 'Revisa la consola del servidor para el enlace de verificación manual.'
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      mailFailed: false,
+      message: 'Cuenta creada. Revisa tu correo para verificarla.'
     });
 
-    console.log(`[AUTH] Nuevo usuario: ${username} (pendiente verificación)`);
-    res.status(201).json({ success: true, message: "Cuenta creada. Revisa tu correo para verificarla." });
   } catch (err) {
-    console.error("Register Error:", err);
-    res.status(500).json({ success: false, error: "Error interno del servidor." });
+    console.error('Register Error:', err);
+    res.status(500).json({ success: false, error: 'Error interno del servidor.' });
   }
 });
 
 // LOGIN
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_MS   = 15 * 60 * 1000; // 15 min
-
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const identifier = (req.body.username || req.body.identifier || '').trim().toLowerCase();
     const password   = (req.body.password || '').trim();
 
     if (!identifier || !password)
-      return res.status(400).json({ success: false, error: 'Credenciales incompletas.' });
+      return res.status(400).json({ success: false,
+        error: 'Introduce tu usuario/email y contraseña.' });
 
-    const user = await User.findOne({ $or: [{ username: identifier }, { email: identifier }] });
+    const user = await User.findOne({
+      $or: [{ username: identifier }, { email: identifier }]
+    });
 
-    // Mensaje genérico (no revela si falla el user o la pass)
-    const FAIL = { success: false, error: 'Credenciales incorrectas.' };
+    if (!user)
+      return res.status(401).json({ success: false,
+        error: 'No existe ninguna cuenta con ese usuario o email.' });
 
-    if (!user) return res.status(401).json(FAIL);
-
-    // Comprobar bloqueo por intentos
+    // Comprobar bloqueo
     if (user.locked_until && new Date() < user.locked_until) {
-      const mins = Math.ceil((user.locked_until - Date.now()) / 60000);
-      return res.status(423).json({
-        success: false,
-        error: `Cuenta bloqueada. Inténtalo en ${mins} minutos.`
-      });
+      const mins = Math.ceil((new Date(user.locked_until) - Date.now()) / 60000);
+      return res.status(423).json({ success: false,
+        error: `Cuenta bloqueada por demasiados intentos. Espera ${mins} minuto${mins !== 1 ? 's' : ''}.` });
     }
 
-    // Verificar contraseña (usuarios Google no tienen password_hash)
+    // Sin password_hash (cuenta Google)
     if (!user.password_hash)
-      return res.status(401).json({ success: false, error: 'Esta cuenta usa Google Sign-In.' });
+      return res.status(401).json({ success: false,
+        error: 'Esta cuenta no tiene contraseña local. Contacta al administrador.' });
 
+    // Verificar contraseña
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       const attempts = (user.failed_attempts || 0) + 1;
+      const remaining = MAX_ATTEMPTS - attempts;
       const update = { failed_attempts: attempts };
+
       if (attempts >= MAX_ATTEMPTS) {
         update.locked_until = new Date(Date.now() + LOCKOUT_MS);
-        console.warn(`[AUTH] Cuenta bloqueada: ${user.username} (${attempts} intentos)`);
+        await User.findByIdAndUpdate(user._id, { $set: update });
+        console.warn(`[AUTH] 🔒 Cuenta bloqueada: ${user.username}`);
+        return res.status(423).json({ success: false,
+          error: 'Cuenta bloqueada por demasiados intentos. Espera 15 minutos.' });
       }
+
       await User.findByIdAndUpdate(user._id, { $set: update });
-      return res.status(401).json(FAIL);
+      return res.status(401).json({ success: false,
+        error: `Contraseña incorrecta. Te queda${remaining === 1 ? '' : 'n'} ${remaining} intento${remaining !== 1 ? 's' : ''} antes del bloqueo.` });
     }
 
-    if (!user.active) {
-      return res.status(403).json({ success: false, error: 'Cuenta inactiva. Por favor verifica tu correo electrónico.' });
-    }
+    // Cuenta sin verificar
+    if (!user.active)
+      return res.status(403).json({ success: false,
+        error: 'Debes verificar tu email antes de entrar. Revisa tu bandeja de entrada.' });
 
-    // Login correcto: resetear contadores
+    // Login correcto
     await User.findByIdAndUpdate(user._id, {
       $set: { failed_attempts: 0, locked_until: null, last_login: new Date() }
     });
@@ -354,8 +398,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       httpOnly: true, secure: false, sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000, path: '/'
     });
+
+    console.log(`[AUTH] ✅ Login: ${user.username}`);
     res.json({ success: true, user: { username: user.username, role: user.role } });
-  } catch(err) {
+
+  } catch (err) {
     console.error('Login Error:', err);
     res.status(500).json({ success: false, error: 'Error interno del servidor.' });
   }
@@ -375,7 +422,6 @@ app.get('/api/auth/google',
 app.get('/api/auth/google/callback',
   passport.authenticate('google', { failureRedirect: '/login?error=google_failed', session: true }),
   (req, res) => {
-    // Generar JWT igual que el login local
     const token = jwt.sign(
       { userId: req.user._id, username: req.user.username, role: req.user.role },
       JWT_SECRET,
@@ -389,7 +435,7 @@ app.get('/api/auth/google/callback',
   }
 );
 
-// ── EMAIL VERIFICATION ──
+// VERIFY EMAIL
 app.post("/api/auth/verify-email", async (req, res) => {
   try {
     const { token } = req.body;
@@ -402,20 +448,43 @@ app.post("/api/auth/verify-email", async (req, res) => {
     user.verify_email_token = null;
     await user.save();
 
-    res.json({ success: true, message: "Cuenta verificada con éxito." });
+    res.json({ success: true, message: "Cuenta verificada." });
   } catch (err) {
     console.error("Verify Email Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });
   }
 });
 
-// ── FORGOT PASSWORD ──
+// ── DEV ONLY: verificar cuenta sin email ──
+app.get('/api/auth/dev-verify/:username', async (req, res) => {
+  if (process.env.NODE_ENV === 'production')
+    return res.status(404).json({ success: false, error: 'Not found.' });
+
+  try {
+    const username = req.params.username.toLowerCase();
+    const user = await User.findOneAndUpdate(
+      { username },
+      { $set: { active: true, verify_email_token: null } },
+      { new: true }
+    );
+    if (!user)
+      return res.status(404).json({ success: false, error: `Usuario '${username}' no encontrado.` });
+
+    console.log(`[DEV] ✅ Usuario activado manualmente: ${username}`);
+    res.json({ success: true,
+      message: `Usuario '${username}' activado. Ya puede iniciar sesión.` });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Error interno.' });
+  }
+});
+
+// FORGOT PASSWORD
 app.post("/api/auth/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email: email.trim().toLowerCase() });
-    
-    // Siempre devolvemos success aunque no exista para no revelar cuentas
+
+    // Siempre devolvemos success para no revelar cuentas
     if (!user || user.auth_provider === 'google') {
       return res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
     }
@@ -426,12 +495,10 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     await user.save();
 
     const resetLink = `http://localhost:8080/reset-password?token=${resetToken}`;
-
-    // Enviar correo de recuperación
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: '"CyberShield PRO" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
       to: user.email,
-      subject: 'CyberShield — Recuperación de contraseña',
+      subject: '🛡️ CyberShield — Recuperación de contraseña',
       html: `<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;background:#0a0a0a;color:#e0e0e0;border:1px solid #00ff41;border-radius:8px">
         <h2 style="color:#00ff41;text-align:center">🛡️ CyberShield</h2>
         <p>Has solicitado restablecer tu contraseña.</p>
@@ -443,14 +510,14 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       </div>`
     });
 
-    res.json({ success: true, message: "Se ha enviado un enlace de recuperación a tu correo." });
+    res.json({ success: true, message: "Si el correo existe, se ha enviado un enlace de recuperación." });
   } catch (err) {
     console.error("Forgot Password Error:", err);
     res.status(500).json({ success: false, error: "Error interno del servidor." });
   }
 });
 
-// ── RESET PASSWORD ──
+// RESET PASSWORD
 app.post("/api/auth/reset-password", async (req, res) => {
   try {
     const { token, password } = req.body;
@@ -464,10 +531,10 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
     if (!user) return res.status(400).json({ success: false, error: "El enlace es inválido o ha expirado." });
 
-    user.password_hash = await bcrypt.hash(password, 12);
+    user.password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     user.reset_password_token = null;
     user.reset_password_expires = null;
-    user.failed_attempts = 0; // Opcional, desbloquear si estaba bloqueado
+    user.failed_attempts = 0;
     user.locked_until = null;
     await user.save();
 
@@ -505,6 +572,27 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
   }
 });
 
+// DELETE ACCOUNT (darse de baja — elimina el usuario de MongoDB)
+app.delete("/api/auth/delete-account", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: "Usuario no encontrado." });
+
+    await User.findByIdAndDelete(req.user.userId);
+    res.clearCookie("cybershield_token", { path: "/" });
+
+    console.log(`[AUTH] 🗑️ Cuenta eliminada: ${user.username} (${user.email})`);
+    res.json({ success: true, message: "Cuenta eliminada permanentemente." });
+  } catch (err) {
+    console.error("Delete Account Error:", err);
+    res.status(500).json({ success: false, error: "Error interno del servidor." });
+  }
+});
+
+// ══════════════════════════════════════
+// ── RUTAS OPERATIVAS ──
+// ══════════════════════════════════════
+
 // STATS (Dashboard — datos reales de MongoDB)
 app.get("/api/stats", async (req, res) => {
   try {
@@ -514,21 +602,18 @@ app.get("/api/stats", async (req, res) => {
 
     const totalTemplates = await AttackTemplate.countDocuments();
 
-    // attack_logs collection (raw mongoose)
     const db = mongoose.connection.db;
     const logsCol = db.collection('attack_logs');
     const totalAttacks = await logsCol.countDocuments();
     const todayAttacks = await logsCol.countDocuments({ timestamp: { $gte: today } });
     const lastAttack = await logsCol.findOne({}, { sort: { timestamp: -1 } });
 
-    // Ataques por módulo (últimos 7 días)
     const attacksByModule = await logsCol.aggregate([
       { $match: { timestamp: { $gte: weekAgo } } },
       { $group: { _id: "$module", count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]).toArray();
 
-    // Últimas 5 operaciones
     const recentOps = await logsCol.find({})
       .sort({ timestamp: -1 })
       .limit(5)
@@ -558,21 +643,17 @@ app.get("/api/stats", async (req, res) => {
 app.get("/api/health", async (req, res) => {
   const results = { mongodb: false, n8n: false, kali: false, wazuh: false };
 
-  // MongoDB — ya estamos conectados si llegamos aquí
   results.mongodb = mongoose.connection.readyState === 1;
 
-  // n8n
   try {
     const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
     const r = await fetch(n8nUrl + '/healthz', { signal: AbortSignal.timeout(3000) });
     results.n8n = r.ok;
   } catch { results.n8n = false; }
 
-  // Kali SSH — intento de conexión rápida
   try {
     if (!process.env.SSH_HOST) {
       results.kali = false;
-      console.warn('[HEALTH] SSH_HOST no definido en .env');
     } else {
       const conn = new Client();
       results.kali = await new Promise((resolve) => {
@@ -590,7 +671,6 @@ app.get("/api/health", async (req, res) => {
     }
   } catch { results.kali = false; }
 
-  // Wazuh
   try {
     const wazuhHost = process.env.WAZUH_HOST || '10.10.10.49';
     const r = await fetch(`https://${wazuhHost}:9200`, {
@@ -603,7 +683,7 @@ app.get("/api/health", async (req, res) => {
   res.json({ success: true, services: results });
 });
 
-// WAZUH ALERTS PROXY — para el dashboard defensivo
+// WAZUH ALERTS PROXY
 app.post("/api/wazuh/alerts", async (req, res) => {
   try {
     const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
@@ -622,7 +702,6 @@ app.post("/api/wazuh/alerts", async (req, res) => {
 
 // REPORTS GENERATE
 app.post("/api/reports/generate", (req, res) => {
-  // El flujo de n8n envía los datos del ataque aquí para generar el PDF
   const data = req.body;
   const reportId = data.report_id || 'CS-RPT-unknown';
 
@@ -631,7 +710,6 @@ app.post("/api/reports/generate", (req, res) => {
   PDFDoc.on('data', c => chunks.push(c));
   PDFDoc.on('end', () => {
     const pdfBuffer = Buffer.concat(chunks);
-    // En producción guardaríamos el archivo; por ahora devolvemos la URL
     res.json({
       success: true,
       report_id: reportId,
@@ -654,7 +732,7 @@ app.post("/api/reports/generate", (req, res) => {
   PDFDoc.end();
 });
 
-// ATTACK LOGS — registrar resultado de ataques
+// ATTACK LOGS
 app.post("/api/attacks/log", async (req, res) => {
   try {
     const db = mongoose.connection.db;
@@ -671,7 +749,7 @@ app.post("/api/attacks/log", async (req, res) => {
   }
 });
 
-// ── ATTACK MODULE ROUTES ──
+// ATTACK TEMPLATES
 app.get("/api/attacks/templates", async (req, res) => {
   try {
     const templates = await AttackTemplate.find({});
@@ -682,7 +760,7 @@ app.get("/api/attacks/templates", async (req, res) => {
   }
 });
 
-// Rate limit para ejecución de ataques (máx 20 por IP en 10min)
+// Rate limit para ejecución de ataques
 const attackLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 20,
@@ -745,6 +823,6 @@ if (process.env.NODE_ENV === "production") {
 
 // ── START SERVER ──
 app.listen(PORT, () => {
-  console.log(`🚀 CyberShield Server Unified running on port ${PORT}`);
+  console.log(`🚀 CyberShield Server running on port ${PORT}`);
   console.log(`🌍 Entorno: ${process.env.NODE_ENV || 'development'}`);
 });

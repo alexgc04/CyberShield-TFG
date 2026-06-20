@@ -13,7 +13,6 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [lockedUntil, setLockedUntil] = useState("");
   const [googleAvailable, setGoogleAvailable] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,7 +28,6 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setLockedUntil("");
 
     try {
       const trimmedIdentifier = identifier.trim().toLowerCase();
@@ -45,11 +43,7 @@ const Login = () => {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        if (data.error && data.error.includes("bloqueada")) {
-          setLockedUntil(data.error);
-        } else {
-          setError(data.error || "Credenciales incorrectas");
-        }
+        setError(data.error || "Error al iniciar sesión.");
         setLoading(false);
         return;
       }
@@ -64,6 +58,9 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Detectar si el error es sobre verificación de email
+  const isVerifyError = error.toLowerCase().includes('verificar') || error.toLowerCase().includes('email');
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -107,7 +104,7 @@ const Login = () => {
                 type="text"
                 placeholder="admin"
                 value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                onChange={(e) => { setError(''); setIdentifier(e.target.value); }}
                 required
                 className="bg-background/50 border-primary/30 focus:border-primary focus:glow-green font-mono text-sm placeholder:text-muted-foreground/50"
               />
@@ -128,7 +125,7 @@ const Login = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setError(''); setPassword(e.target.value); }}
                   required
                   className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm pr-10"
                 />
@@ -142,15 +139,14 @@ const Login = () => {
               </div>
             </div>
 
-            {error && !lockedUntil && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
-                <p className="text-xs text-destructive font-mono">{error}</p>
-              </div>
-            )}
-            
-            {lockedUntil && (
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-md px-3 py-2">
-                <p className="text-xs text-orange-500 font-mono">{lockedUntil}</p>
+            {error && (
+              <div className={`${isVerifyError ? 'bg-orange-500/10 border-orange-500/30' : 'bg-destructive/10 border-destructive/30'} border rounded-md px-3 py-2 space-y-2`}>
+                <p className={`text-xs font-mono ${isVerifyError ? 'text-orange-400' : 'text-destructive'}`}>{error}</p>
+                {isVerifyError && (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    ¿No recibiste el correo? Contacta al administrador.
+                  </p>
+                )}
               </div>
             )}
 
@@ -162,7 +158,7 @@ const Login = () => {
               {loading ? (
                 <span className="flex items-center gap-2">
                   <Terminal className="w-4 h-4 animate-pulse" />
-                  AUTENTICANDO...
+                  ACCEDIENDO...
                 </span>
               ) : (
                 <span className="flex items-center gap-2">

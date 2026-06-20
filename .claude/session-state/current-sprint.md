@@ -1,7 +1,7 @@
 # Estado del Sprint — CyberShield TFG
 
-Última actualización: 2026-06-14
-Agente que actualizó: Claude Opus 4.6 (Thinking)
+Última actualización: 2026-06-19
+Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 
 ---
 
@@ -30,26 +30,47 @@ Agente que actualizó: Claude Opus 4.6 (Thinking)
 - Middleware verifyToken reutilizable en server.js
 - Fix de login tras registro (.trim() y lowercase añadidos)
 - Rate limiting implementado (global, auth, attacks_execute)
-- Sanitización NoSQL implementada (express-mongo-sanitize)
 - Google OAuth 2.0 integrado condicionalmente con passport y express-session
 - Botón de "Continuar con Google" añadido al frontend de forma dinámica
 - Verificación segura en health check de SSH_HOST
-- Bugfix: Orden de inicialización de GoogleStrategy en server.js corregido
-- Bugfix: URL relativa en botones de Google OAuth en Login y Register
-- Limpieza: Desinstalación de bcryptjs (obsoleto)
 - Feature: Sistema completo de recuperación de contraseñas y correos de verificación con nodemailer
+- **Sprint 0: Limpieza y Auth ✅**
+  - Eliminado express-mongo-sanitize (incompatible con Express 5)
+  - Consolidadas constantes duplicadas (MAX_ATTEMPTS, LOCKOUT_MS, BCRYPT_ROUNDS)
+  - Schema userSchema corregido (google_id sin unique, solo sparse)
+  - Mock SMTP con [MAIL SIMULADO] en consola
+  - Register.tsx: muestra "Revisa tu correo" en vez de redirigir a /login
+  - Flujo completo verificado: register → verify-email → login ✅
+- **Sprint 0 (correcciones SMTP y mensajes) ✅**
+  - Register: User.create separado de sendMail (guardado independiente del email)
+  - Register: mensajes específicos — "usuario ya en uso", "email ya registrado"
+  - Register: frontend con estado success (panel verde) y manejo de mailFailed
+  - Login: mensajes específicos — "No existe cuenta", "Contraseña incorrecta (X intentos)", "Cuenta bloqueada", "Verificar email"
+  - Login: errores se limpian al escribir, hint naranja para verificación
+  - Ruta /api/auth/dev-verify/:username para desarrollo (404 en production)
+  - server.js arranca sin errores con SMTP configurado ✅
 
 ### 🔄 EN CURSO
-- Importación de reglas Wazuh al servidor 10.10.10.49.
+- Configuración de SMTP_PASS con Contraseña de Aplicación de Google (pendiente del usuario)
+
+- **Sprint 1: Módulos de Ataque ✅**
+  - Actualizado `attack_templates.json` a exactamente 15 módulos (14 LAN/Scapy/Brute/PrivEsc + PRIV-002 Kerberos a petición del usuario).
+  - Eliminado `command_alt` en LAN-001.
+  - Corregido LAN-005b para hacer match exacto con el doc de ataques (MitM completo sin `sh -c`).
+  - Actualizado `local_rules.xml` con la regla padre 100499 y reglas hijas 100500-100513 exactas.
+  - Actualizado `seed-templates.js` con funcionalidad de limpieza de plantillas huérfanas en MongoDB.
+  - Verificación cruzada automática (JSON vs XML) superada con éxito (0 errores).
 
 ### 📋 PENDIENTE (en este orden)
-- Importar reglas Wazuh en servidor 10.10.10.49 (esperando confirmación del usuario).
-- GitHub cleanup + README final.
+- Importar reglas Wazuh en servidor 10.10.10.49
+- Configuración de SMTP_PASS con Contraseña de Aplicación de Google (pendiente del usuario)
+- GitHub cleanup + README final
 
 ---
 
 ## PRÓXIMO PASO INMEDIATO
-Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.49 para importar las reglas Wazuh?"
+El usuario debe configurar SMTP_PASS con una Contraseña de Aplicación de Google (16 chars) en .env.
+Instrucciones: myaccount.google.com → Seguridad → Contraseñas de aplicaciones.
 
 ---
 
@@ -64,11 +85,14 @@ Esperar respuesta del usuario: "¿Confirmas acceso SSH al servidor 10.10.10.49 p
 - BF-001: Medusa SSH, BF-002: Hydra Web
 - PRIV-001: Local (SUID+sudo+cron), PRIV-002: AD (kerbrute+impacket)
 - Reglas Wazuh 100510-100513 para los 4 módulos nuevos
-- Dashboard centralizado utiliza endpoints /api/stats, /api/health y /api/wazuh/alerts.
+- Dashboard centralizado utiliza endpoints /api/stats, /api/health y /api/wazuh/alerts
 - auth-server.js eliminado — toda la auth vive en server.js
 - seed-mod00.js eliminado — usar scripts/seed-templates.js
 - Login acepta 'identifier' o 'username' para compatibilidad
 - command_alt mantenido en LAN-001 (el flujo n8n lo usa)
+- express-mongo-sanitize eliminado — incompatible con Express 5
+- Register: guardado en MongoDB independiente del envío de correo
+- Login: mensajes de error específicos por tipo de fallo
 
 ---
 

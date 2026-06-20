@@ -1,5 +1,6 @@
+import { useState } from "react";
 import {
-  Shield, LayoutDashboard, Swords, ShieldCheck, LogOut, Terminal, Bug, Wifi, Activity
+  Shield, LayoutDashboard, Swords, ShieldCheck, LogOut, Terminal, Bug, Wifi, Activity, UserX
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -20,15 +21,33 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3020/api/auth/logout", {
+      await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });
     } catch { /* ignore */ }
     navigate("/login");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/auth/delete-account", {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (data.success) {
+        navigate("/login");
+      }
+    } catch { /* ignore */ }
+    setDeleting(false);
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -101,7 +120,42 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="p-3 space-y-1">
+        {/* Modal de confirmación para darse de baja */}
+        {showDeleteConfirm && !collapsed && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 mb-2 space-y-2">
+            <p className="text-xs text-destructive font-mono font-bold">
+              ⚠️ ¿SEGURO?
+            </p>
+            <p className="text-[10px] text-muted-foreground font-mono">
+              Tu cuenta y todos tus datos se borrarán permanentemente.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="flex-1 px-2 py-1.5 text-[10px] font-mono font-bold bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 transition-colors disabled:opacity-50"
+              >
+                {deleting ? "BORRANDO..." : "SÍ, ELIMINAR"}
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-2 py-1.5 text-[10px] font-mono text-muted-foreground border border-border/50 rounded hover:bg-muted/20 transition-colors"
+              >
+                CANCELAR
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-md transition-all font-mono"
+        >
+          <UserX className="w-4 h-4" />
+          {!collapsed && <span className="text-xs">Darse de baja</span>}
+        </button>
+
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all font-mono"

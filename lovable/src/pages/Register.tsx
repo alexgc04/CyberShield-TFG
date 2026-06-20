@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Shield, Terminal, Eye, EyeOff } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Shield, Terminal, Eye, EyeOff, CheckCircle } from "lucide-react";
 
 const Register = () => {
   const [username, setUsername] = useState("");
@@ -15,9 +14,8 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [googleAvailable, setGoogleAvailable] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
 
   useEffect(() => {
     fetch('/api/auth/google/available', { credentials: 'include' })
@@ -33,6 +31,7 @@ const Register = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
 
     if (!passwordsMatch) {
       setError("Las contraseñas no coinciden.");
@@ -67,16 +66,21 @@ const Register = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Error al registrar la cuenta.");
+        setError(data.error || "Error al crear la cuenta.");
         setLoading(false);
         return;
       }
 
-      toast({
-        title: "Cuenta creada",
-        description: "Ahora puedes iniciar sesión.",
-      });
-      navigate("/login");
+      // Éxito: mostrar mensaje según si el correo llegó o falló
+      if (data.mailFailed) {
+        setSuccess(
+          'Cuenta creada. El correo de verificación no se pudo enviar — ' +
+          'el administrador tiene el enlace de activación en la consola del servidor.'
+        );
+      } else {
+        setSuccess('Cuenta creada. Revisa tu bandeja de entrada para verificarla.');
+      }
+      setLoading(false);
     } catch {
       setError("No se pudo conectar con el servidor de autenticación.");
       setLoading(false);
@@ -115,131 +119,145 @@ const Register = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Nombre de usuario
-              </Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="operator01"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="reg-email" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Email
-              </Label>
-              <Input
-                id="reg-email"
-                type="email"
-                placeholder="usuario@cybershield.io"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Contraseña
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          {success ? (
+            <div className="space-y-4">
+              <div className="bg-green-500/10 border border-green-500/30 rounded-md px-4 py-6 text-center space-y-3">
+                <CheckCircle className="w-10 h-10 text-green-500 mx-auto" />
+                <p className="text-sm text-green-400 font-mono">{success}</p>
               </div>
-              {password && !passwordLongEnough && (
-                <p className="text-xs text-destructive font-mono">Mínimo 8 caracteres</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirm" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
-                Confirmar contraseña
-              </Label>
-              <Input
-                id="confirm"
-                type="password"
-                placeholder="••••••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className={`bg-background/50 border-primary/30 focus:border-primary font-mono text-sm ${confirmPassword && !passwordsMatch ? "border-destructive" : ""}`}
-              />
-              {confirmPassword && !passwordsMatch && (
-                <p className="text-xs text-destructive font-mono">Las contraseñas no coinciden</p>
-              )}
-            </div>
-
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
-                <p className="text-xs text-destructive font-mono">{error}</p>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              disabled={loading || (!passwordsMatch || !passwordLongEnough)}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-mono uppercase tracking-widest text-sm h-11"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4 animate-pulse" />
-                  REGISTRANDO...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Terminal className="w-4 h-4" />
-                  CREAR CUENTA
-                </span>
-              )}
-            </Button>
-          </form>
-
-          {googleAvailable && (
-            <>
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border/50" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-card/80 px-2 text-muted-foreground font-mono">o continúa con</span>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full font-mono text-sm border-primary/30 hover:border-primary hover:text-primary"
-                onClick={() => { window.location.href = '/api/auth/google'; }}
-              >
-                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                REGISTRARSE CON GOOGLE
+              <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-mono uppercase tracking-widest text-sm h-11">
+                <Link to="/login">IR AL LOGIN</Link>
               </Button>
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                    Nombre de usuario
+                  </Label>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="operator01"
+                    value={username}
+                    onChange={(e) => { setError(''); setUsername(e.target.value); }}
+                    required
+                    className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="reg-email" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                    Email
+                  </Label>
+                  <Input
+                    id="reg-email"
+                    type="email"
+                    placeholder="usuario@cybershield.io"
+                    value={email}
+                    onChange={(e) => { setError(''); setEmail(e.target.value); }}
+                    required
+                    className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm placeholder:text-muted-foreground/50"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                    Contraseña
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••••••"
+                      value={password}
+                      onChange={(e) => { setError(''); setPassword(e.target.value); }}
+                      required
+                      className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {password && !passwordLongEnough && (
+                    <p className="text-xs text-destructive font-mono">Mínimo 8 caracteres</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm" className="text-muted-foreground font-mono text-xs uppercase tracking-wider">
+                    Confirmar contraseña
+                  </Label>
+                  <Input
+                    id="confirm"
+                    type="password"
+                    placeholder="••••••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => { setError(''); setConfirmPassword(e.target.value); }}
+                    required
+                    className={`bg-background/50 border-primary/30 focus:border-primary font-mono text-sm ${confirmPassword && !passwordsMatch ? "border-destructive" : ""}`}
+                  />
+                  {confirmPassword && !passwordsMatch && (
+                    <p className="text-xs text-destructive font-mono">Las contraseñas no coinciden</p>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2">
+                    <p className="text-xs text-destructive font-mono">{error}</p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading || (!passwordsMatch || !passwordLongEnough)}
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-mono uppercase tracking-widest text-sm h-11"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <Terminal className="w-4 h-4 animate-pulse" />
+                      REGISTRANDO...
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <Terminal className="w-4 h-4" />
+                      CREAR CUENTA
+                    </span>
+                  )}
+                </Button>
+              </form>
+
+              {googleAvailable && (
+                <>
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border/50" />
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-card/80 px-2 text-muted-foreground font-mono">o continúa con</span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full font-mono text-sm border-primary/30 hover:border-primary hover:text-primary"
+                    onClick={() => { window.location.href = '/api/auth/google'; }}
+                  >
+                    <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    REGISTRARSE CON GOOGLE
+                  </Button>
+                </>
+              )}
             </>
           )}
 
