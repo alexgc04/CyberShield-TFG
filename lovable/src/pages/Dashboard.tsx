@@ -1,9 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, Target, Server, Activity as ActivityIcon, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 type Stats = {
@@ -22,290 +19,227 @@ type Health = {
   wazuh: boolean;
 };
 
-const severityColor: Record<number, string> = {
-  12: "bg-destructive text-destructive-foreground",
-  10: "bg-neon-red/20 text-neon-red border border-neon-red/30",
-  8: "bg-neon-yellow/20 text-neon-yellow border border-neon-yellow/30",
-  4: "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30",
-};
-
 const Dashboard = () => {
   const [stats, setStats] = useState<Stats | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [statsRes, healthRes, alertsRes] = await Promise.all([
-        fetch("/api/stats").catch(() => null),
-        fetch("/api/health").catch(() => null),
-        fetch("/api/wazuh/alerts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minLevel: 12 })
-        }).catch(() => null)
+      const [statsRes, healthRes] = await Promise.all([
+        fetch("/api/stats"),
+        fetch("/api/health")
       ]);
 
-      if (statsRes?.ok) {
-        const data = await statsRes.json();
-        if (data.success) setStats(data.stats);
+      if (!statsRes.ok || !healthRes.ok) {
+        throw new Error("Error conectando con el servidor");
       }
 
-      if (healthRes?.ok) {
-        const data = await healthRes.json();
-        if (data.success) setHealth(data.services);
+      const statsData = await statsRes.json();
+      const healthData = await healthRes.json();
+
+      if (!statsData.success || !healthData.success) {
+        throw new Error("Error conectando con el servidor");
       }
 
-      if (alertsRes?.ok) {
-        const data = await alertsRes.json();
-        setAlerts(data.alerts?.slice(0, 5) || []);
-      }
+      setStats(statsData.stats);
+      setHealth(healthData.services);
+      setError(null);
     } catch (err) {
       console.error(err);
-      toast({
-        title: "Error de sincronización",
-        description: "No se pudieron cargar los datos del servidor.",
-        variant: "destructive",
-      });
+      setError("Error conectando con el servidor");
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000); // Auto-refresh 30s
+    const interval = setInterval(loadData, 30000); // Llama a GET /api/health y /api/stats cada 30 segundos
     return () => clearInterval(interval);
   }, [loadData]);
 
-  const chartData = (stats?.attacksByModule || []).map(m => ({
+  const timeAgo = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    if (isNaN(diffMs) || diffMs < 0) return "N/A";
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return "hace unos segundos";
+    if (diffMins < 60) return `hace ${diffMins} min`;
+    if (diffHours < 24) return `hace ${diffHours} h`;
+    return `hace ${diffDays} d`;
+  };
+
+  if (error) {
+    return (
+      <div className="-m-6 p-6 min-h-screen bg-[#0a0a0a] text-red-500 font-mono flex items-center justify-center">
+        <div className="border border-red-500 bg-red-950/20 p-8 rounded max-w-md text-center space-y-4">
+          <p className="text-xl font-bold tracking-wider uppercase">⚠️ Alerta de Sistema</p>
+          <p className="text-sm font-semibold">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!stats || !health) {
+    return (
+      <div className="-m-6 p-6 min-h-screen bg-[#0a0a0a] text-[#00ff41] font-mono flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-[#00ff41] border-t-transparent rounded-full animate-spin" />
+          <span className="font-mono text-sm tracking-wider uppercase">Verificando estado del sistema...</span>
+        </div>
+      </div>
+    );
+  }
+
+  const chartData = (stats.attacksByModule || []).map(m => ({
     name: m._id,
     ataques: m.count
   }));
 
+  const recentOps = stats.recentOps || [];
+
   return (
-    <div className="relative">
-      <div className="fixed inset-0 bg-cover bg-center opacity-20 pointer-events-none z-0" style={{ backgroundImage: "url('/images/servers.png')" }} />
-      <div className="space-y-6 relative z-10">
-        <div>
-          <h1 className="text-2xl font-bold font-mono text-primary text-glow-green tracking-wider">
-            PANEL DE CONTROL
-          </h1>
-          <p className="text-sm text-muted-foreground font-mono mt-1">
-            Resumen general del estado de seguridad
+    <div className="-m-6 p-6 min-h-screen bg-[#0a0a0a] text-[#00ff41] font-mono space-y-8">
+      {/* Cabecera del Resumen Ejecutivo */}
+      <div>
+        <h1 className="text-3xl font-bold uppercase tracking-wider text-glow-green text-[#00ff41]">
+          🛡️ RESUMEN EJECUTIVO DE SEGURIDAD
+        </h1>
+        <p className="text-xs text-[#00ff41]/70 mt-1 uppercase">
+          Estado General del SIEM / Validador de Seguridad CyberShield
+        </p>
+      </div>
+
+      {/* SECCIÓN 1 — Estado de Sistemas (fila de 4 badges) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { name: "MongoDB", status: health.mongodb },
+          { name: "n8n", status: health.n8n },
+          { name: "Kali Linux", status: health.kali },
+          { name: "Wazuh", status: health.wazuh }
+        ].map((sys) => (
+          <div key={sys.name} className="flex items-center justify-between p-4 border border-[#00ff41]/20 bg-black/60 rounded">
+            <span className="text-sm font-bold uppercase tracking-wider">{sys.name}</span>
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${sys.status ? 'bg-[#00ff41]' : 'bg-red-500'} opacity-75`}></span>
+                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${sys.status ? 'bg-[#00ff41]' : 'bg-red-500'}`}></span>
+              </span>
+              <span className={`text-xs font-bold ${sys.status ? 'text-[#00ff41]' : 'text-red-500'}`}>
+                {sys.status ? "ONLINE" : "OFFLINE"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* SECCIÓN 2 — KPIs principales (fila de 4 tarjetas) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total de ataques ejecutados */}
+        <div className="p-5 border border-[#00ff41]/20 bg-black/40 rounded flex flex-col justify-between h-28">
+          <span className="text-[10px] text-[#00ff41]/60 uppercase tracking-widest">Ataques Ejecutados</span>
+          <span className="text-3xl font-bold">{stats.totalAttacks}</span>
+        </div>
+
+        {/* Ataques hoy */}
+        <div className="p-5 border border-[#00ff41]/20 bg-black/40 rounded flex flex-col justify-between h-28">
+          <span className="text-[10px] text-[#00ff41]/60 uppercase tracking-widest">Ataques Hoy</span>
+          <span className="text-3xl font-bold">{stats.todayAttacks}</span>
+        </div>
+
+        {/* Módulos disponibles */}
+        <div className="p-5 border border-[#00ff41]/20 bg-black/40 rounded flex flex-col justify-between h-28">
+          <span className="text-[10px] text-[#00ff41]/60 uppercase tracking-widest">Módulos Disponibles</span>
+          <span className="text-3xl font-bold">{stats.totalTemplates}</span>
+        </div>
+
+        {/* Último ataque */}
+        <div className="p-5 border border-[#00ff41]/20 bg-black/40 rounded flex flex-col justify-between h-28">
+          <span className="text-[10px] text-[#00ff41]/60 uppercase tracking-widest">Último Ataque</span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-sm font-bold truncate text-[#00ff41]">{stats.lastAttack?.name || "N/A"}</span>
+            <span className="text-[10px] text-[#00ff41]/70">{stats.lastAttack ? timeAgo(stats.lastAttack.timestamp) : ""}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* SECCIÓN 3 — Gráfico de actividad */}
+      <div className="border border-[#00ff41]/20 bg-black/40 p-5 rounded">
+        <h2 className="text-sm font-bold uppercase tracking-wider mb-4 text-[#00ff41]">
+          📊 Gráfico de Actividad (Últimos 7 días)
+        </h2>
+        <div className="h-64 flex items-center justify-center">
+          {chartData.length === 0 ? (
+            <span className="text-[#00ff41]/60 uppercase tracking-wider text-sm font-bold">Sin actividad reciente</span>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0, 255, 65, 0.1)" vertical={false} />
+                <XAxis dataKey="name" stroke="#00ff41" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis stroke="#00ff41" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                <RechartsTooltip
+                  contentStyle={{ backgroundColor: '#0a0a0a', borderColor: '#00ff41' }}
+                  itemStyle={{ color: '#00ff41' }}
+                />
+                <Bar dataKey="ataques" fill="#00ff41" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* SECCIÓN 4 — Últimas 5 operaciones */}
+      <div className="border border-[#00ff41]/20 bg-black/40 p-5 rounded">
+        <h2 className="text-sm font-bold uppercase tracking-wider mb-4 text-[#00ff41]">
+          📜 Últimas 5 Operaciones
+        </h2>
+        {recentOps.length === 0 ? (
+          <p className="text-center text-[#00ff41]/60 uppercase py-6 border border-dashed border-[#00ff41]/20 rounded">
+            Sin operaciones registradas
           </p>
-        </div>
-
-        {/* Panel 1 — KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="border-primary/20 bg-card/80 glow-green">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <Target className="w-8 h-8 text-neon-cyan" />
-                <span className="text-3xl font-bold font-mono text-foreground">{stats?.todayAttacks || 0} / {stats?.totalAttacks || 0}</span>
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-wider">Ataques Hoy / Total</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-primary/10 bg-card/60 hover:glow-green transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <ActivityIcon className="w-8 h-8 text-neon-purple" />
-                <span className="text-lg font-bold font-mono text-foreground truncate max-w-[120px] text-right">
-                  {stats?.lastAttack?.name || "--"}
-                </span>
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-wider flex justify-between">
-                <span>Último Ataque</span>
-                <span>{stats?.lastAttack?.timestamp ? new Date(stats?.lastAttack.timestamp).toLocaleTimeString() : ""}</span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-primary/10 bg-card/60 hover:glow-green transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <Shield className="w-8 h-8 text-neon-green" />
-                <span className="text-3xl font-bold font-mono text-foreground">{stats?.totalTemplates || 0}</span>
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-wider">Módulos Disponibles</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-primary/10 bg-card/60 hover:glow-green transition-shadow">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <AlertTriangle className="w-8 h-8 text-neon-red" />
-                <span className="text-3xl font-bold font-mono text-foreground">{alerts.length}</span>
-              </div>
-              <p className="text-xs font-mono text-muted-foreground mt-2 uppercase tracking-wider">Alertas Críticas (24h)</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Panel 2 — Gráfico de ataques por módulo */}
-          <Card className="border-primary/10 bg-card/60 lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <ActivityIcon className="w-4 h-4 text-neon-cyan" />
-                Ataques por Módulo (Últimos 7 días)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-64">
-              {chartData.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-muted-foreground font-mono text-sm">Sin operaciones registradas. Lanza tu primer ataque.</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" vertical={false} />
-                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <RechartsTooltip
-                      contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
-                      itemStyle={{ color: 'hsl(var(--primary))' }}
-                    />
-                    <Bar dataKey="ataques" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Panel 5 — Estado del sistema */}
-          <Card className="border-primary/10 bg-card/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                <Server className="w-4 h-4 text-neon-purple" />
-                Estado del Sistema
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  { name: "Kali SSH", status: health?.kali },
-                  { name: "Wazuh", status: health?.wazuh },
-                  { name: "MongoDB", status: health?.mongodb },
-                  { name: "n8n", status: health?.n8n }
-                ].map((s) => (
-                  <div key={s.name} className="flex justify-between items-center p-2 border border-border/30 rounded-md bg-background/50">
-                    <span className="font-mono text-sm">{s.name}</span>
-                    {s.status === undefined ? (
-                      <Badge variant="outline" className="text-[10px]">VERIFICANDO</Badge>
-                    ) : s.status ? (
-                      <div className="flex items-center gap-1 text-neon-green">
-                        <CheckCircle className="w-4 h-4" /> <span className="font-mono text-[10px]">ONLINE</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-neon-red">
-                        <XCircle className="w-4 h-4" /> <span className="font-mono text-[10px]">OFFLINE</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Panel 3 — Tabla últimas operaciones */}
-        <Card className="border-primary/10 bg-card/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider">
-              Últimas 5 Operaciones
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stats?.recentOps?.length === 0 ? (
-              <p className="text-muted-foreground font-mono text-sm p-4 text-center border border-dashed border-border/50 rounded">
-                Sin operaciones registradas. Lanza tu primer ataque.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/30 hover:bg-transparent">
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Timestamp</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Ataque</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Parámetros</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Exit Code</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">PDF</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats?.recentOps?.map((op) => (
-                    <TableRow key={op._id} className="border-border/20 hover:bg-primary/5">
-                      <TableCell className="font-mono text-xs text-muted-foreground">{new Date(op.timestamp).toLocaleString()}</TableCell>
-                      <TableCell className="font-mono text-xs text-foreground font-bold">{op.attack_name}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
-                        {JSON.stringify(op.parameters)}
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-[#00ff41]/20 hover:bg-transparent">
+                  <TableHead className="font-mono text-xs uppercase text-[#00ff41] font-bold">Fecha/Hora</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-[#00ff41] font-bold">Ataque</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-[#00ff41] font-bold">Módulo</TableHead>
+                  <TableHead className="font-mono text-xs uppercase text-[#00ff41] font-bold">Exit Code</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentOps.map((op) => {
+                  const exitCode = op.exit_code !== undefined ? op.exit_code : op.ssh_exit_code;
+                  const isOk = exitCode === 0 || exitCode === "0";
+                  return (
+                    <TableRow key={op._id} className="border-b border-[#00ff41]/10 hover:bg-[#00ff41]/5">
+                      <TableCell className="font-mono text-xs text-[#00ff41]/80">
+                        {new Date(op.timestamp).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-white font-bold">
+                        {op.attack_name || op.attack_id}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-[#00ff41]/80">
+                        {op.module || "UNKNOWN"}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`font-mono text-[10px] ${op.ssh_exit_code === 0 ? "text-neon-green border-neon-green/30" : "text-neon-red border-neon-red/30"}`}>
-                          {op.ssh_exit_code}
+                        <Badge variant="outline" className={`font-mono text-[10px] px-2 py-0.5 rounded ${isOk ? "text-[#00ff41] border-[#00ff41]/30 bg-[#00ff41]/10" : "text-red-500 border-red-500/30 bg-red-950/20"}`}>
+                          {isOk ? "OK" : "ERROR"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {op.pdf_url ? (
-                          <a href={op.pdf_url} target="_blank" rel="noreferrer" className="text-neon-cyan hover:underline font-mono text-xs">
-                            Ver PDF
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground text-xs font-mono">-</span>
-                        )}
-                      </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Panel 4 — Últimas alertas Wazuh */}
-        <Card className="border-primary/10 bg-card/60">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-4 h-4 text-neon-cyan" />
-              Últimas 5 Alertas Wazuh (Críticas)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {alerts.length === 0 ? (
-              <p className="text-muted-foreground font-mono text-sm p-4 text-center border border-dashed border-border/50 rounded">
-                No hay alertas críticas recientes.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/30 hover:bg-transparent">
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Timestamp</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Nivel</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Regla</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Descripción</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-muted-foreground">Agente</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {alerts.map((a, i) => (
-                    <TableRow key={i} className="border-border/20 hover:bg-primary/5">
-                      <TableCell className="font-mono text-xs text-muted-foreground">{new Date(a.timestamp).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge className={`font-mono text-[10px] ${a.rule.level >= 12 ? 'bg-destructive text-destructive-foreground' : a.rule.level >= 6 ? 'bg-neon-yellow/20 text-neon-yellow' : 'bg-neon-green/20 text-neon-green'}`}>
-                          Lvl {a.rule.level}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{a.rule.id}</TableCell>
-                      <TableCell className="font-mono text-xs max-w-[300px] truncate">{a.rule.description}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{a.agent?.name || "N/A"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
     </div>
   );

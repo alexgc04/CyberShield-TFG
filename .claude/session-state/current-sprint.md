@@ -34,6 +34,10 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 - Botón de "Continuar con Google" añadido al frontend de forma dinámica
 - Verificación segura en health check de SSH_HOST
 - Feature: Sistema completo de recuperación de contraseñas y correos de verificación con nodemailer
+- **Sprint 2: Dashboards reales con datos reales ✅**
+  - Implementado endpoint `/api/stats` real para KPIs de MongoDB sin auth.
+  - Implementado `/api/health` real con check de MongoDB, n8n, SSH Kali Linux y Wazuh (con desactivación de TLS para certificados auto-firmados).
+  - Rediseñado `/dashboard` con estilo hacker SIEM (#0a0a0a, #00ff41, monospace) cargando datos reales de la API.
 - **Sprint 0: Limpieza y Auth ✅**
   - Eliminado express-mongo-sanitize (incompatible con Express 5)
   - Consolidadas constantes duplicadas (MAX_ATTEMPTS, LOCKOUT_MS, BCRYPT_ROUNDS)

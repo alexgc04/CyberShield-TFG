@@ -1,4 +1,5 @@
 require("dotenv").config();
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -608,7 +609,8 @@ app.get("/api/stats", async (req, res) => {
     const logsCol = db.collection('attack_logs');
     const totalAttacks = await logsCol.countDocuments();
     const todayAttacks = await logsCol.countDocuments({ timestamp: { $gte: today } });
-    const lastAttack = await logsCol.findOne({}, { sort: { timestamp: -1 } });
+    const lastAttackArray = await logsCol.find({}).sort({ timestamp: -1 }).limit(1).toArray();
+    const lastAttack = lastAttackArray.length > 0 ? lastAttackArray[0] : null;
 
     const attacksByModule = await logsCol.aggregate([
       { $match: { timestamp: { $gte: weekAgo } } },
@@ -661,8 +663,12 @@ app.get("/api/health", async (req, res) => {
   results.mongodb = mongoose.connection.readyState === 1;
 
   try {
-    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
-    const r = await fetch(n8nUrl + '/healthz', { signal: AbortSignal.timeout(3000) });
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_URL || 'http://localhost:5678';
+    let baseN8nUrl = n8nUrl;
+    if (baseN8nUrl.includes('/webhook')) {
+      baseN8nUrl = baseN8nUrl.split('/webhook')[0];
+    }
+    const r = await fetch(baseN8nUrl + '/healthz', { signal: AbortSignal.timeout(3000) });
     results.n8n = r.ok;
   } catch { results.n8n = false; }
 
@@ -701,7 +707,7 @@ app.get("/api/health", async (req, res) => {
 // WAZUH ALERTS PROXY
 app.post("/api/wazuh/alerts", async (req, res) => {
   try {
-    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_URL || 'http://localhost:5678';
     const response = await fetch(n8nUrl + '/webhook/wazuh-alerts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -891,7 +897,7 @@ const attackLimiter = rateLimit({
 
 app.post("/api/attacks/execute", attackLimiter, async (req, res) => {
   try {
-    const n8nUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678';
+    const n8nUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_URL || 'http://localhost:5678';
     const n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

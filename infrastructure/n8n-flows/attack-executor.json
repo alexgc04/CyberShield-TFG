@@ -79,7 +79,7 @@
         {
             "parameters": {
                 "method": "POST",
-                "url": "http://host.docker.internal:3010/api/reports/generate",
+                "url": "http://host.docker.internal:3001/api/reports/generate",
                 "sendHeaders": true,
                 "headerParameters": {
                     "parameters": [
