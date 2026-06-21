@@ -705,19 +705,307 @@ app.get("/api/health", async (req, res) => {
 });
 
 // WAZUH ALERTS PROXY
-app.post("/api/wazuh/alerts", async (req, res) => {
+app.get("/api/wazuh/alerts", async (req, res) => {
   try {
-    const n8nUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_URL || 'http://localhost:5678';
-    const response = await fetch(n8nUrl + '/webhook/wazuh-alerts', {
+    const isMock = process.env.WAZUH_MOCK === 'true';
+    if (isMock) {
+      return res.json({
+        success: true,
+        alerts: [
+          {
+            id: "mock-alert-1",
+            timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+            rule_id: "100500",
+            rule_description: "ALERTA CYBERSHIELD: Ataque MAC Flooding detectado (MOCK)",
+            agent_name: "kali-agent",
+            mitre_id: "T1557",
+            level: 12
+          },
+          {
+            id: "mock-alert-2",
+            timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+            rule_id: "100504",
+            rule_description: "ALERTA CYBERSHIELD: Envenenamiento de caché ARP (Man-in-the-Middle) detectado (MOCK)",
+            agent_name: "debian-agent",
+            mitre_id: "T1557",
+            level: 12
+          },
+          {
+            id: "mock-alert-3",
+            timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+            rule_id: "100510",
+            rule_description: "ALERTA CYBERSHIELD: Ataque de fuerza bruta SSH detectado (MOCK)",
+            agent_name: "kali-agent",
+            mitre_id: "T1110",
+            level: 12
+          }
+        ]
+      });
+    }
+
+    const indexerUrl = req.query.indexerUrl || `https://${process.env.WAZUH_HOST || '10.10.10.49'}:${process.env.WAZUH_PORT || '9200'}`;
+    const wazuhUser = process.env.WAZUH_USER || 'admin';
+    const wazuhPass = process.env.WAZUH_PASS || 'KuimoKrn5E8V*xZtj8efr3TipwIcH.3U';
+    const authHeader = 'Basic ' + Buffer.from(`${wazuhUser}:${wazuhPass}`).toString('base64');
+
+    const searchRes = await fetch(`${indexerUrl}/wazuh-alerts-*/_search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body)
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify({
+        query: {
+          bool: {
+            must: [
+              { match: { "rule.groups": "cybershield" } }
+            ],
+            filter: [
+              { range: { "@timestamp": { gte: "now-24h" } } }
+            ]
+          }
+        },
+        sort: [{ "@timestamp": { order: "desc" } }],
+        size: 50
+      })
     });
-    if (!response.ok) throw new Error('n8n error');
-    const data = await response.json();
-    res.json(data);
+
+    if (!searchRes.ok) {
+      throw new Error(`Wazuh Indexer returned ${searchRes.status}`);
+    }
+
+    const data = await searchRes.json();
+    const hits = data.hits?.hits || [];
+    const alerts = hits.map(hit => {
+      const src = hit._source || {};
+      const rule = src.rule || {};
+      const agent = src.agent || {};
+      
+      let mitre_id = null;
+      if (rule.mitre) {
+        if (Array.isArray(rule.mitre.id)) {
+          mitre_id = rule.mitre.id[0];
+        } else if (typeof rule.mitre.id === 'string') {
+          mitre_id = rule.mitre.id;
+        }
+      }
+
+      return {
+        id: hit._id,
+        timestamp: src['@timestamp'] || src.timestamp,
+        rule_id: rule.id,
+        rule_description: rule.description,
+        agent_name: agent.name,
+        mitre_id: mitre_id,
+        level: rule.level,
+        _id: hit._id,
+        _index: hit._index || '',
+        rule: {
+          id: rule.id || '',
+          level: rule.level || 0,
+          description: rule.description || '',
+          groups: rule.groups || [],
+          mitre: rule.mitre || { id: mitre_id ? [mitre_id] : [] },
+          firedtimes: rule.firedtimes || 0
+        },
+        agent: {
+          id: agent.id || '',
+          name: agent.name || '',
+          ip: agent.ip || ''
+        },
+        manager: src.manager || { name: 'wazuh-manager' },
+        decoder: src.decoder || { name: 'syslog' },
+        full_log: src.full_log || '',
+        location: src.location || '',
+        data: src.data || {}
+      };
+    });
+
+    res.json({ success: true, alerts });
   } catch (err) {
-    res.json({ alerts: [], error: "No se pudo conectar con n8n/Wazuh" });
+    console.error("Wazuh Alerts Proxy Error:", err.message);
+    res.json({ success: false, alerts: [], error: "Wazuh no disponible" });
+  }
+});
+
+// WAZUH AGENTS PROXY
+app.get("/api/wazuh/agents", async (req, res) => {
+  try {
+    const isMock = process.env.WAZUH_MOCK === 'true';
+    if (isMock) {
+      return res.json({
+        success: true,
+        agents: [
+          { id: "000", name: "wazuh-manager", status: "active", ip: "127.0.0.1", lastKeepAlive: new Date().toISOString() },
+          { id: "001", name: "kali-agent", status: "active", ip: "10.10.10.142", lastKeepAlive: new Date().toISOString() },
+          { id: "002", name: "debian-agent", status: "disconnected", ip: "10.10.10.70", lastKeepAlive: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString() }
+        ]
+      });
+    }
+
+    const managerUrl = req.query.managerUrl || `https://${process.env.WAZUH_HOST || '10.10.10.49'}:55000`;
+    const apiUser = process.env.WAZUH_API_USER || 'wazuh';
+    const apiPass = process.env.WAZUH_API_PASS || 'FV5hrtKBtJRPA8lu51tvDZOP*i1n8UGH';
+    const authHeader = 'Basic ' + Buffer.from(`${apiUser}:${apiPass}`).toString('base64');
+
+    // 1. Authenticate to get Token
+    const authRes = await fetch(`${managerUrl}/security/user/authenticate`, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader
+      }
+    });
+
+    if (!authRes.ok) {
+      throw new Error(`Wazuh API auth failed: ${authRes.status}`);
+    }
+
+    const authData = await authRes.json();
+    const token = authData.data?.token || authData.token;
+    if (!token) {
+      throw new Error("Wazuh API auth token not returned");
+    }
+
+    // 2. Fetch Agents
+    const agentsRes = await fetch(`${managerUrl}/agents`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!agentsRes.ok) {
+      throw new Error(`Wazuh API agents failed: ${agentsRes.status}`);
+    }
+
+    const agentsData = await agentsRes.json();
+    const items = agentsData.data?.affected_items || [];
+    const agents = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      status: item.status,
+      ip: item.ip,
+      lastKeepAlive: item.lastKeepAlive || item.last_keepactive || item.dateAdd
+    }));
+
+    res.json({ success: true, agents });
+  } catch (err) {
+    console.error("Wazuh Agents Proxy Error:", err.message);
+    res.json({ success: false, agents: [], error: "No se puede conectar con Wazuh Manager" });
+  }
+});
+
+// WAZUH CORRELATION
+app.post("/api/wazuh/correlation", async (req, res) => {
+  try {
+    const isMock = process.env.WAZUH_MOCK === 'true';
+    if (isMock) {
+      return res.json({
+        success: true,
+        detected: true,
+        alerts: [
+          {
+            id: "mock-corr-1",
+            timestamp: new Date().toISOString(),
+            rule_id: "100500",
+            rule_description: "ALERTA CYBERSHIELD: Detección mockeada de ataque",
+            agent_name: "kali-agent",
+            mitre_id: "T1557",
+            level: 12
+          }
+        ],
+        count: 1
+      });
+    }
+
+    const { timestamp_start, timestamp_end } = req.body;
+    const indexerUrl = req.body.indexerUrl || `https://${process.env.WAZUH_HOST || '10.10.10.49'}:${process.env.WAZUH_PORT || '9200'}`;
+    const wazuhUser = process.env.WAZUH_USER || 'admin';
+    const wazuhPass = process.env.WAZUH_PASS || 'KuimoKrn5E8V*xZtj8efr3TipwIcH.3U';
+    const authHeader = 'Basic ' + Buffer.from(`${wazuhUser}:${wazuhPass}`).toString('base64');
+
+    const searchRes = await fetch(`${indexerUrl}/wazuh-alerts-*/_search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader
+      },
+      body: JSON.stringify({
+        query: {
+          bool: {
+            must: [
+              { match: { "rule.groups": "cybershield" } }
+            ],
+            filter: [
+              { range: { "@timestamp": { gte: timestamp_start, lte: timestamp_end } } }
+            ]
+          }
+        },
+        sort: [{ "@timestamp": { order: "desc" } }],
+        size: 50
+      })
+    });
+
+    if (!searchRes.ok) {
+      throw new Error(`Wazuh Indexer correlation failed: ${searchRes.status}`);
+    }
+
+    const data = await searchRes.json();
+    const hits = data.hits?.hits || [];
+    const alerts = hits.map(hit => {
+      const src = hit._source || {};
+      const rule = src.rule || {};
+      const agent = src.agent || {};
+      
+      let mitre_id = null;
+      if (rule.mitre) {
+        if (Array.isArray(rule.mitre.id)) {
+          mitre_id = rule.mitre.id[0];
+        } else if (typeof rule.mitre.id === 'string') {
+          mitre_id = rule.mitre.id;
+        }
+      }
+
+      return {
+        id: hit._id,
+        timestamp: src['@timestamp'] || src.timestamp,
+        rule_id: rule.id,
+        rule_description: rule.description,
+        agent_name: agent.name,
+        mitre_id: mitre_id,
+        level: rule.level,
+        _id: hit._id,
+        _index: hit._index || '',
+        rule: {
+          id: rule.id || '',
+          level: rule.level || 0,
+          description: rule.description || '',
+          groups: rule.groups || [],
+          mitre: rule.mitre || { id: mitre_id ? [mitre_id] : [] },
+          firedtimes: rule.firedtimes || 0
+        },
+        agent: {
+          id: agent.id || '',
+          name: agent.name || '',
+          ip: agent.ip || ''
+        },
+        manager: src.manager || { name: 'wazuh-manager' },
+        decoder: src.decoder || { name: 'syslog' },
+        full_log: src.full_log || '',
+        location: src.location || '',
+        data: src.data || {}
+      };
+    });
+
+    res.json({
+      success: true,
+      detected: alerts.length > 0,
+      alerts,
+      count: alerts.length
+    });
+  } catch (err) {
+    console.error("Wazuh Correlation Error:", err.message);
+    res.json({ success: false, detected: false, error: "Wazuh no responde", alerts: [], count: 0 });
   }
 });
 
