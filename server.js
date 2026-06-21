@@ -877,7 +877,7 @@ app.post("/api/attacks/log", async (req, res) => {
   }
 });
 
-// ATTACK TEMPLATES
+// GET ALL ATTACK TEMPLATES
 app.get("/api/attacks/templates", async (req, res) => {
   try {
     const templates = await AttackTemplate.find({});
@@ -888,44 +888,105 @@ app.get("/api/attacks/templates", async (req, res) => {
   }
 });
 
+// GET ATTACK TEMPLATE BY ID
+app.get("/api/attacks/templates/:id", async (req, res) => {
+  try {
+    const template = await AttackTemplate.findOne({ id: req.params.id });
+    if (!template) {
+      return res.status(404).json({ success: false, error: "Plantilla no encontrada" });
+    }
+    res.json({ success: true, template });
+  } catch (err) {
+    console.error("Error fetching template:", err);
+    res.status(500).json({ success: false, error: "Error interno del servidor" });
+  }
+});
+
 // Rate limit para ejecución de ataques
 const attackLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 20,
-  message: { success: false, error: 'Demasiados ataques en poco tiempo.' }
+  message: { success: false, error: 'Demasiados ataques en poco tiempo. Espera 10 minutos.' }
 });
+
+function buildCommand(templateStr, params) {
+  if (!templateStr) return "";
+  return Object.entries(params).reduce((cmd, [key, val]) => {
+    return cmd.replace(new RegExp('\\{\\{' + key + '\\}\\}', 'g'), val || '');
+  }, templateStr);
+}
 
 app.post("/api/attacks/execute", attackLimiter, async (req, res) => {
   try {
+    const { attack_id, parameters, company_name } = req.body;
+    if (!attack_id) {
+      return res.status(400).json({ success: false, error: "Falta el ID del ataque." });
+    }
+
+    const template = await AttackTemplate.findOne({ id: attack_id });
+    if (!template) {
+      return res.status(404).json({ success: false, error: "Plantilla de ataque no encontrada." });
+    }
+
+    const params = parameters || {};
+    const finalCommand = buildCommand(template.command, params);
+    const finalLoggerCommand = buildCommand(template.logger_command, params);
+    const reportId = 'CS-RPT-' + Date.now();
+
     const n8nUrl = process.env.N8N_WEBHOOK_URL || process.env.N8N_URL || 'http://localhost:5678';
-    const n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        attack_id: req.body.attack_id || req.body.id,
-        parameters: req.body.parameters || req.body.params,
-        company_name: req.body.company_name || 'Empresa Auditada'
-      })
-    });
+    
+    let n8nResponse;
+    try {
+      n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attack_id,
+          attack_name: template.name,
+          mitre_id: template.mitre_id,
+          command: finalCommand,
+          logger_command: finalLoggerCommand,
+          parameters: params,
+          company_name: companyName => company_name || 'Empresa Auditada',
+          company_name_val: company_name || 'Empresa Auditada',
+          report_id: reportId
+        })
+      });
+    } catch (fetchErr) {
+      console.error("n8n connection error:", fetchErr);
+      if (fetchErr.code === 'ECONNREFUSED' || fetchErr.message.includes('fetch failed')) {
+        return res.status(503).json({
+          success: false,
+          error: "n8n no está disponible. Verifica que el servicio está corriendo."
+        });
+      }
+      throw fetchErr;
+    }
 
     if (!n8nResponse.ok) {
       return res.status(500).json({ success: false, error: "Error al comunicar con n8n webhook" });
     }
 
-    const data = await n8nResponse.json();
+    const text = await n8nResponse.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : { success: true };
+    } catch (e) {
+      data = { ssh_output: text, success: true };
+    }
 
     // Guardar log del ataque en MongoDB
     try {
       const db = mongoose.connection.db;
       const logsCol = db.collection('attack_logs');
       await logsCol.insertOne({
-        attack_id: req.body.attack_id || req.body.id,
-        attack_name: data.attack_name || req.body.attack_id,
-        module: data.module || 'UNKNOWN',
-        parameters: req.body.parameters || req.body.params,
-        company_name: req.body.company_name || 'Empresa Auditada',
-        ssh_exit_code: data.ssh_exit_code || 0,
-        report_id: data.report_id,
+        attack_id,
+        attack_name: template.name,
+        module: template.module,
+        parameters: params,
+        company_name: company_name || 'Empresa Auditada',
+        ssh_exit_code: data.ssh_exit_code !== undefined ? data.ssh_exit_code : (data.exit_code !== undefined ? data.exit_code : 0),
+        report_id: data.report_id || reportId,
         pdf_url: data.pdf_url,
         timestamp: new Date()
       });

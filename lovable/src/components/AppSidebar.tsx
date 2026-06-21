@@ -78,8 +78,9 @@ export function AppSidebar() {
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
+                      id={`nav-link-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       to={item.url}
                       end
                       className="hover:bg-primary/10 transition-all duration-200"
@@ -133,6 +134,7 @@ export function AppSidebar() {
             </p>
             <div className="flex gap-2">
               <button
+                id="btn-delete-account-confirm"
                 onClick={handleDeleteAccount}
                 disabled={deleting}
                 className="flex-1 px-2 py-1.5 text-[10px] font-mono font-bold bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 transition-colors disabled:opacity-50"
@@ -149,21 +151,31 @@ export function AppSidebar() {
           </div>
         )}
 
-        <button
-          onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-md transition-all font-mono"
-        >
-          <UserX className="w-4 h-4" />
-          {!collapsed && <span className="text-xs">Darse de baja</span>}
-        </button>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              id="btn-delete-account-trigger"
+              tooltip="Darse de baja"
+              onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}
+              className="text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-all font-mono w-full"
+            >
+              <UserX className="mr-2 h-4 w-4 shrink-0" />
+              {!collapsed && <span className="text-xs">Darse de baja</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all font-mono"
-        >
-          <LogOut className="w-4 h-4" />
-          {!collapsed && <span>Cerrar sesión</span>}
-        </button>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              id="btn-logout"
+              tooltip="Cerrar sesión"
+              onClick={handleLogout}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all font-mono w-full"
+            >
+              <LogOut className="mr-2 h-4 w-4 shrink-0" />
+              {!collapsed && <span>Cerrar sesión</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   );
