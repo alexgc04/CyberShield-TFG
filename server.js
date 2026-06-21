@@ -16,6 +16,7 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -80,6 +81,7 @@ const globalLimiter = rateLimit({
   message: { success: false, error: 'Demasiadas peticiones. Espera 15 minutos.' }
 });
 app.use('/api', globalLimiter);
+app.use("/api/reports", express.static(path.join(__dirname, "reports")));
 
 // Rate limiting estricto SOLO para auth (anti fuerza bruta HTTP)
 const authLimiter = rateLimit({
@@ -639,6 +641,19 @@ app.get("/api/stats", async (req, res) => {
   }
 });
 
+// GET REPORTS LOGS
+app.get("/api/reports", verifyToken, async (req, res) => {
+  try {
+    const db = mongoose.connection.db;
+    const logsCol = db.collection('attack_logs');
+    const logs = await logsCol.find({}).sort({ timestamp: -1 }).toArray();
+    res.json({ success: true, reports: logs });
+  } catch (err) {
+    console.error("Error fetching report logs:", err);
+    res.status(500).json({ success: false, error: "Error cargando reportes" });
+  }
+});
+
 // HEALTH CHECK — ping a servicios
 app.get("/api/health", async (req, res) => {
   const results = { mongodb: false, n8n: false, kali: false, wazuh: false };
@@ -703,12 +718,22 @@ app.post("/api/wazuh/alerts", async (req, res) => {
 // REPORTS GENERATE
 app.post("/api/reports/generate", (req, res) => {
   const data = req.body;
-  const reportId = data.report_id || 'CS-RPT-unknown';
+  const reportId = data.report_id || 'CS-RPT-' + crypto.randomBytes(4).toString('hex').toUpperCase();
 
-  const PDFDoc = new PDFDocument();
+  const reportsDir = path.join(__dirname, "reports");
+  if (!fs.existsSync(reportsDir)) {
+    fs.mkdirSync(reportsDir, { recursive: true });
+  }
+  const reportPath = path.join(reportsDir, `${reportId}.pdf`);
+  const writeStream = fs.createWriteStream(reportPath);
+
+  const PDFDoc = new PDFDocument({ margin: 40 });
+  PDFDoc.pipe(writeStream);
+
   const chunks = [];
   PDFDoc.on('data', c => chunks.push(c));
-  PDFDoc.on('end', () => {
+
+  writeStream.on('finish', () => {
     const pdfBuffer = Buffer.concat(chunks);
     res.json({
       success: true,
@@ -718,17 +743,114 @@ app.post("/api/reports/generate", (req, res) => {
     });
   });
 
-  PDFDoc.fontSize(18).text(`CyberShield — Informe de Ataque`, { align: 'center' });
-  PDFDoc.moveDown();
-  PDFDoc.fontSize(12).text(`Empresa: ${data.company_name || 'N/A'}`);
-  PDFDoc.text(`Ataque: ${data.attack_name || data.attack_id}`);
-  PDFDoc.text(`MITRE: ${data.mitre_id || 'N/A'}`);
-  PDFDoc.text(`Riesgo: ${data.risk_level || 'N/A'}`);
-  PDFDoc.text(`Fecha: ${new Date().toLocaleString()}`);
-  PDFDoc.moveDown();
-  PDFDoc.text(`Comando: ${data.command_executed || 'N/A'}`);
-  PDFDoc.moveDown();
-  PDFDoc.fontSize(10).font('Courier').text(`SSH Output:\n${data.ssh_output || '(sin output)'}`);
+  // Estilo Premium CyberShield
+  // Banner de cabecera oscuro
+  PDFDoc.rect(30, 30, 550, 50).fill('#070708');
+  PDFDoc.fillColor('#00ff41').fontSize(14).font('Helvetica-Bold').text('🛡️ CYBERSHIELD ASV — INFORME DE SEGURIDAD', 45, 48);
+
+  // Tabla de Metadatos
+  let currentY = 100;
+  PDFDoc.fillColor('#334155').fontSize(10).font('Helvetica-Bold').text('ORGANIZACIÓN:', 40, currentY);
+  PDFDoc.fillColor('#ffffff').font('Helvetica').text(data.company_name || 'N/A', 150, currentY);
+
+  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('ATAQUE SIMULADO:', 40, currentY + 18);
+  PDFDoc.fillColor('#ffffff').font('Helvetica').text(`${data.attack_name || 'N/A'} (${data.attack_id || 'N/A'})`, 150, currentY + 18);
+
+  // Extraer IP objetivo
+  let targetIp = 'N/A';
+  if (data.parameters) {
+    targetIp = data.parameters.target || data.parameters.ip || data.parameters.host || 'N/A';
+  } else if (data.target) {
+    targetIp = data.target;
+  }
+  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('IP OBJETIVO (HOST):', 40, currentY + 36);
+  PDFDoc.fillColor('#00ff41').font('Helvetica-Bold').text(targetIp, 150, currentY + 36);
+
+  // Columna Derecha de Metadatos
+  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('FECHA/HORA:', 340, currentY);
+  PDFDoc.fillColor('#ffffff').font('Helvetica').text(new Date().toLocaleString('es-ES'), 430, currentY);
+
+  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('TÉCNICA MITRE:', 340, currentY + 18);
+  PDFDoc.fillColor('#ffffff').font('Helvetica').text(data.mitre_id || 'N/A', 430, currentY + 18);
+
+  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('RIESGO EVALUADO:', 340, currentY + 36);
+  let riskColor = '#3b82f6';
+  const risk = (data.risk_level || 'LOW').toUpperCase();
+  if (risk === 'CRITICAL') riskColor = '#ef4444';
+  else if (risk === 'HIGH') riskColor = '#f97316';
+  else if (risk === 'MEDIUM') riskColor = '#eab308';
+  PDFDoc.fillColor(riskColor).font('Helvetica-Bold').text(risk, 460, currentY + 36);
+
+  // Línea divisoria
+  PDFDoc.moveTo(30, 160).lineTo(580, 160).stroke('#1e293b');
+
+  // Resumen Ejecutivo
+  currentY = 175;
+  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
+  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('RESUMEN EJECUTIVO', 42, currentY + 2);
+  
+  PDFDoc.fillColor('#94a3b8').fontSize(9).font('Helvetica').text(
+    `Se ha llevado a cabo una simulación de intrusión ofensiva controlada sobre el host ${targetIp} bajo la infraestructura autorizada de ${data.company_name || 'la organización'}. El vector de ataque evaluó las vulnerabilidades locales de la red o del sistema y comprobó la capacidad de detección del agente Wazuh local.`,
+    40, currentY + 22, { width: 530, align: 'justify' }
+  );
+
+  // Detalles Técnicos (Comando)
+  currentY = 245;
+  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
+  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('DETALLES DE INTRUSIÓN (EJECUCIÓN SSH)', 42, currentY + 2);
+  
+  PDFDoc.fillColor('#334155').fontSize(9).font('Helvetica-Bold').text('Comando Lanzado:', 40, currentY + 22);
+  PDFDoc.rect(40, currentY + 35, 530, 25).fill('#0f172a');
+  PDFDoc.fillColor('#00ff41').fontSize(8).font('Courier-Bold').text(data.command_executed || '(Ejecución directa/API)', 48, currentY + 43);
+
+  // Recomendaciones según tipo de ataque
+  currentY = 320;
+  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
+  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('RECOMENDACIONES DE MITIGACIÓN', 42, currentY + 2);
+
+  let recs = "Mantener el sistema de detección y el firewall local activos.";
+  const aid = (data.attack_id || '').toUpperCase();
+  if (aid.startsWith("LAN-")) {
+    recs = "1. Implementar Port Security en los switches para limitar las direcciones MAC registradas.\n" +
+           "2. Habilitar Dynamic ARP Inspection (DAI) y DHCP Snooping para contrarrestar ataques MitM.\n" +
+           "3. Forzar el uso exclusivo de protocolos de comunicación cifrados (HTTPS/SSH/TLS) en la red local.";
+  } else if (aid.startsWith("SCAPY-")) {
+    recs = "1. Bloquear y auditar escaneos de red anómalos mediante reglas de iptables/firewalld.\n" +
+           "2. Implementar Rate Limiting para conexiones entrantes y mitigar ataques de inundación (Flooding).\n" +
+           "3. Mantener desactivados los puertos no críticos y deshabilitar respuestas ICMP innecesarias.";
+  } else if (aid.startsWith("BF-")) {
+    recs = "1. Configurar bloqueos automáticos temporales de IP mediante herramientas como Fail2ban.\n" +
+           "2. Deshabilitar la autenticación de SSH basada en contraseña y forzar el uso de llaves criptográficas.\n" +
+           "3. Establecer directivas de contraseñas robustas con una longitud mínima de 12 caracteres y caracteres especiales.";
+  } else if (aid.startsWith("LIN-") || aid.startsWith("PRIV-")) {
+    recs = "1. Auditar periódicamente binarios con bits SUID/SGID y revocar permisos innecesarios.\n" +
+           "2. Restringir permisos de escritura sobre tareas programadas del sistema (cron) y scripts compartidos.\n" +
+           "3. Configurar Directivas de Grupo (GPOs) seguras en Active Directory para mitigar delegación de Kerberos.";
+  }
+
+  PDFDoc.fillColor('#e2e8f0').fontSize(9).font('Helvetica').text(recs, 40, currentY + 22, { lineGap: 4 });
+
+  // Consola de Salida SSH
+  currentY = 415;
+  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
+  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('OUTPUT DE CONSOLA KALI LINUX', 42, currentY + 2);
+
+  PDFDoc.rect(40, currentY + 22, 530, 240).fill('#070708');
+  
+  let rawOutput = data.ssh_output || '(Sin salida estándar)';
+  if (rawOutput.length > 800) {
+    rawOutput = rawOutput.slice(0, 800) + "\n\n[... TRUNCATED DUE TO SIZE LIMITS ...]";
+  }
+  
+  PDFDoc.fillColor('#00ff41').fontSize(7.5).font('Courier').text(rawOutput, 45, currentY + 28, {
+    width: 520,
+    height: 228,
+    ellipsis: true
+  });
+
+  // Pie de Página
+  PDFDoc.fillColor('#475569').fontSize(8).font('Helvetica-Oblique').text('CyberShield ASV Platform — Escuela Superior de Informática, UCLM 2025/26', 40, 755, { align: 'center' });
+
   PDFDoc.end();
 });
 

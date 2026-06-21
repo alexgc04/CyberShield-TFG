@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { 
   Crosshair, Terminal as TerminalIcon, Download, ShieldAlert, Loader2, Play, 
@@ -55,12 +56,14 @@ export default function Offensive() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
   const [terminalInput, setTerminalInput] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [progressText, setProgressText] = useState("");
   
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
     { text: "========================================================================", type: "system" },
     { text: "🛡️ CYBERSHIELD ADVANCED ATTACK SIMULATOR (CLI SESSION ACTIVE)", type: "success" },
     { text: "========================================================================", type: "system" },
-    { text: "Host: kali-linux-attack-node (10.10.10.21)", type: "info" },
+    { text: "Host: kali-linux-attack-node (192.168.1.142)", type: "info" },
     { text: "Status: Connected via SSH (Port 22)", type: "info" },
     { text: "Wazuh Manager: Active (10.10.10.49)", type: "info" },
     { text: "", type: "info" },
@@ -135,13 +138,35 @@ export default function Offensive() {
     }
 
     setLoading(true);
+    setProgress(5);
+    setProgressText("Conectando al agente Kali Linux (192.168.1.142)...");
+    
+    let currentProgress = 5;
+    const progressInterval = setInterval(() => {
+      if (currentProgress < 90) {
+        currentProgress += Math.floor(Math.random() * 8) + 3;
+        if (currentProgress > 90) currentProgress = 90;
+        
+        if (currentProgress < 30) {
+          setProgressText("Estableciendo túnel SSH seguro con Kali...");
+        } else if (currentProgress < 55) {
+          setProgressText("Invocando el vector ofensivo en Kali Linux...");
+        } else if (currentProgress < 75) {
+          setProgressText("Generando firmas de Syslog para Wazuh...");
+        } else {
+          setProgressText("Compilando auditoría y estructurando informe PDF...");
+        }
+        setProgress(currentProgress);
+      }
+    }, 600);
+
     const cmdRun = getRenderedCommand(selectedAttack, paramValues);
     
     // Print starting command output logs
     setTerminalLines(prev => [
       ...prev,
       { text: `cybershield@kali:~$ run ${selectedAttack.id} --company="${companyName || 'Empresa Auditada'}"`, type: "command" },
-      { text: `[~] SSH: Iniciando túnel SSH seguro con el agente Kali Linux (10.10.10.21)...`, type: "info" },
+      { text: `[~] SSH: Iniciando túnel SSH seguro con el agente Kali Linux (192.168.1.142)...`, type: "info" },
     ]);
 
     // Simulated connection delays for visuals
@@ -169,6 +194,11 @@ export default function Offensive() {
         throw new Error(data.error || "Error al ejecutar el ataque");
       }
 
+      clearInterval(progressInterval);
+      setProgress(100);
+      setProgressText("¡Reporte de vulnerabilidades PDF generado con éxito!");
+      setTimeout(() => setProgress(0), 3000);
+
       setTerminalLines(prev => [
         ...prev,
         { text: `[+] Kali: Comando completado con éxito (código de salida: ${data.ssh_exit_code ?? 0}).`, type: "success" },
@@ -189,6 +219,10 @@ export default function Offensive() {
         description: `El ataque ha sido lanzado y el informe procesado vía n8n.`,
       });
     } catch (err: any) {
+      clearInterval(progressInterval);
+      setProgress(0);
+      setProgressText("");
+
       setTerminalLines(prev => [
         ...prev,
         { text: `[-] Error: ${err.message}`, type: "error" },
@@ -204,6 +238,7 @@ export default function Offensive() {
       setLoading(false);
     }
   };
+
 
   const handleTerminalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -574,6 +609,23 @@ export default function Offensive() {
           </DialogContent>
         </Dialog>
 
+        {/* Barra de progreso de ejecución */}
+        {loading && progress > 0 && (
+          <Card className="border-primary/20 bg-black/95 p-4 rounded-xl shadow-lg font-mono relative overflow-hidden">
+            <div className="flex justify-between items-center mb-2 text-xs">
+              <span className="text-primary font-bold animate-pulse flex items-center gap-1.5">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                ⚡ EJECUTANDO ATAQUE Y GENERANDO AUDITORÍA...
+              </span>
+              <span className="text-primary font-bold">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-1.5 bg-primary/10" />
+            <p className="text-[10px] text-muted-foreground mt-2 animate-pulse">
+              ➔ {progressText}
+            </p>
+          </Card>
+        )}
+
         {/* Consola Terminal al Pie de Página */}
         <div 
           id="terminal-console" 
@@ -587,7 +639,7 @@ export default function Offensive() {
               <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
               <TerminalIcon className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs text-primary font-bold tracking-widest uppercase">
-                Consola Linux Kali @ 10.10.10.21
+                Consola Linux Kali @ 192.168.1.142
               </span>
             </div>
             

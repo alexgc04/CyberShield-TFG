@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Shield, LayoutDashboard, Swords, ShieldCheck, LogOut, Terminal, Bug, Wifi, Activity, UserX
+  Shield, LayoutDashboard, Swords, ShieldCheck, LogOut, Terminal, Bug, Wifi, Activity, UserX, FileText
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -14,6 +14,7 @@ const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Módulo Ofensivo", url: "/offensive", icon: Swords },
   { title: "Módulo Defensivo", url: "/defensive", icon: ShieldCheck },
+  { title: "Reportes", url: "/reports", icon: FileText },
 ];
 
 export function AppSidebar() {

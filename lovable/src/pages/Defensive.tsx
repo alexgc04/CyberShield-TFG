@@ -132,8 +132,10 @@ export default function Defensive() {
   const topRule = alerts.find(a => a.rule.id === topRuleId)?.rule.description || "N/A";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div className="relative space-y-6">
+      <div className="fixed inset-0 bg-cover bg-center opacity-10 pointer-events-none z-0" style={{ backgroundImage: "url('/images/broken-shield.png')" }} />
+      <div className="relative z-10 space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-2xl font-bold font-mono text-neon-cyan flex items-center gap-2">
             <ShieldCheck className="w-6 h-6" /> WAZUH SIEM DASHBOARD
@@ -322,6 +324,7 @@ export default function Defensive() {
       {selectedAlert && (
         <WazuhAlertDetail alert={selectedAlert as any} onClose={() => setSelectedAlert(null)} />
       )}
+      </div>
     </div>
   );
 }

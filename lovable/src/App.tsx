@@ -9,6 +9,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Offensive from "./pages/Offensive";
 import Defensive from "./pages/Defensive";
+import Reports from "./pages/Reports";
 import DashboardLayout from "./components/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import NotFound from "./pages/NotFound";
@@ -39,6 +40,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/offensive" element={<Offensive />} />
               <Route path="/defensive" element={<Defensive />} />
+              <Route path="/reports" element={<Reports />} />
             </Route>
           </Route>
 

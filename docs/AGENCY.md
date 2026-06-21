@@ -63,7 +63,7 @@ que el módulo ofensivo responda bien a entradas válidas e inválidas.
 - [ ] Regla Wazuh en local_rules.xml con el ID correcto
 - [ ] PDF generado al completar el ataque
 - [ ] Pruebas unitarias correspondientes aprobadas en `lovable/src/test/`
-- [ ] Commit: "feat(MODxx): [nombre módulo] implementado"
+- [ ] Commit: "[nombre módulo] implementado"
 
 ---
 
@@ -120,4 +120,4 @@ Frontend (React) ──▶ server.js (/api/attacks/execute)
    - **MongoDB**: Añade una credencial MongoDB usando la cadena de conexión de tu archivo `.env`.
    - **SSH (Kali Linux)**: Añade una credencial de tipo *SSH Key* o *Password* correspondiente al host `192.168.1.142` (o la IP asignada a tu Kali) con su usuario y contraseña (habitualmente `kali`/`kali`).
 5. Asigna las credenciales configuradas a los nodos de MongoDB y Execute SSH en el lienzo de n8n.
-6. **Activa** el flujo con el botón *Active* en la esquina superior derecha.
+6. **Activa** el flujo con el botón *Active* en la esquina superior derecha.
