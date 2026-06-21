@@ -65,6 +65,10 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
   - Rediseñado por completo el Módulo Ofensivo (`Offensive.tsx`) con filtros por categorías y tarjetas premium de riesgo (luminosas).
   - Creado modal de configuración dinámico y reactivo para los parámetros de los ataques.
   - Desarrollada terminal Linux interactiva funcional con línea de comandos (`help`, `clear`, `status`, `list`, `run <id>`), buffer de logs, simulación SSH y botón de descarga directa de PDF.
+  - Integrada barra de progreso dinámica animada con fases de intrusión durante la ejecución de ataques.
+  - Creada sección y página web dedicada para Reportes (`Reports.tsx`) sincronizada con MongoDB, permitiendo consultar el historial de auditorías y descargar PDFs.
+  - Refacturado backend para guardar PDFs en disco (`reports/`) y servirlos de forma estática en `/api/reports/*.pdf`, además de crear el endpoint `/api/reports` para listar el historial.
+  - Añadido fondo de pantalla de escudo roto (`broken-shield.png`) con opacidad sutil en el dashboard defensivo (`Defensive.tsx`).
   - Integrado el rol de `QA-Tester` (`docs/agents/QA-TESTER.md`) en la metodología de la agencia.
   - Documentados flujos de n8n en `docs/AGENCY.md` (unificando `N8N.md`).
   - Implementada suite de pruebas unitarias en `lovable/src/test/wazuhService.test.ts` con paso exitoso en Vitest.
