@@ -705,7 +705,7 @@ app.get("/api/health", async (req, res) => {
 });
 
 // WAZUH ALERTS PROXY
-app.get("/api/wazuh/alerts", async (req, res) => {
+app.get("/api/wazuh/alerts", verifyToken, async (req, res) => {
   try {
     const isMock = process.env.WAZUH_MOCK === 'true';
     if (isMock) {
@@ -829,7 +829,7 @@ app.get("/api/wazuh/alerts", async (req, res) => {
 });
 
 // WAZUH AGENTS PROXY
-app.get("/api/wazuh/agents", async (req, res) => {
+app.get("/api/wazuh/agents", verifyToken, async (req, res) => {
   try {
     const isMock = process.env.WAZUH_MOCK === 'true';
     if (isMock) {
@@ -896,7 +896,7 @@ app.get("/api/wazuh/agents", async (req, res) => {
 });
 
 // WAZUH CORRELATION
-app.post("/api/wazuh/correlation", async (req, res) => {
+app.post("/api/wazuh/correlation", verifyToken, async (req, res) => {
   try {
     const isMock = process.env.WAZUH_MOCK === 'true';
     if (isMock) {
@@ -1166,7 +1166,7 @@ app.post("/api/attacks/log", async (req, res) => {
 });
 
 // GET ALL ATTACK TEMPLATES
-app.get("/api/attacks/templates", async (req, res) => {
+app.get("/api/attacks/templates", verifyToken, async (req, res) => {
   try {
     const templates = await AttackTemplate.find({});
     res.json({ success: true, templates });
@@ -1177,7 +1177,7 @@ app.get("/api/attacks/templates", async (req, res) => {
 });
 
 // GET ATTACK TEMPLATE BY ID
-app.get("/api/attacks/templates/:id", async (req, res) => {
+app.get("/api/attacks/templates/:id", verifyToken, async (req, res) => {
   try {
     const template = await AttackTemplate.findOne({ id: req.params.id });
     if (!template) {
@@ -1204,7 +1204,7 @@ function buildCommand(templateStr, params) {
   }, templateStr);
 }
 
-app.post("/api/attacks/execute", attackLimiter, async (req, res) => {
+app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) => {
   try {
     const { attack_id, parameters, company_name } = req.body;
     if (!attack_id) {
