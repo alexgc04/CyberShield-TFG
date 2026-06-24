@@ -35,27 +35,12 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 - Verificación segura en health check de SSH_HOST
 - Feature: Sistema completo de recuperación de contraseñas y correos de verificación con nodemailer
 - **Sprint 2: Dashboards reales con datos reales ✅**
-  - Implementado endpoint `/api/stats` real para KPIs de MongoDB sin auth.
-  - Implementado `/api/health` real con check de MongoDB, n8n, SSH Kali Linux y Wazuh (con desactivación de TLS para certificados auto-firmados).
-  - Rediseñado `/dashboard` con estilo hacker SIEM (#0a0a0a, #00ff41, monospace) cargando datos reales de la API.
 - **Sprint 0: Limpieza y Auth ✅**
-  - Eliminado express-mongo-sanitize (incompatible con Express 5)
-  - Consolidadas constantes duplicadas (MAX_ATTEMPTS, LOCKOUT_MS, BCRYPT_ROUNDS)
-  - Schema userSchema corregido (google_id sin unique, solo sparse)
-  - Mock SMTP con [MAIL SIMULADO] en consola
-  - Register.tsx: muestra "Revisa tu correo" en vez de redirigir a /login
-  - Flujo completo verificado: register → verify-email → login ✅
-- **Sprint 0 (correcciones SMTP y mensajes) ✅**
-  - Register: User.create separado de sendMail (guardado independiente del email)
-  - Register: mensajes específicos — "usuario ya en uso", "email ya registrado"
-  - Register: frontend con estado success (panel verde) y manejo de mailFailed
-  - Login: mensajes específicos — "No existe cuenta", "Contraseña incorrecta (X intentos)", "Cuenta bloqueada", "Verificar email"
-  - Login: errores se limpian al escribir, hint naranja para verificación
-  - Ruta /api/auth/dev-verify/:username para desarrollo (404 en production)
-  - server.js arranca sin errores con SMTP configurado ✅
+- Configuración de flujo de n8n completada ✅ (Reemplazo dinámico de variables en código JS, query Mongo por attack_name, timeout en la ejecución Kali para evitar loops infinitos de comandos continuos).
 
 ### 🔄 EN CURSO
-- Configuración de SMTP_PASS con Contraseña de Aplicación de Google (pendiente del usuario)
+- Probando que todos los campos de MAC Flooding funcionan
+- Validación de que los outputs de ataque se capturen con éxito después de aplicar el timeout `timeout 10s sudo <command>`.
 
 - **Sprint 1: Módulos de Ataque ✅**
   - Actualizado `attack_templates.json` a exactamente 15 módulos (14 LAN/Scapy/Brute/PrivEsc + PRIV-002 Kerberos a petición del usuario).
@@ -76,18 +61,18 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
   - Integrado el rol de `QA-Tester` (`docs/agents/QA-TESTER.md`) en la metodología de la agencia.
   - Documentados flujos de n8n en `docs/AGENCY.md` (unificando `N8N.md`).
   - Implementada suite de pruebas unitarias en `lovable/src/test/wazuhService.test.ts` con paso exitoso en Vitest.
-
+  - IPs dinámicas de ataque e indicadores visuales de Kali/Wazuh conectados con el backend (/api/health) y mostrados dinámicamente en el dashboard ofensivo (/offensive).
+  - Robustez del flujo de n8n (`attack-executor.json`) mejorada: añadida opción de continuar en caso de fallo en el nodo MongoDB, reemplazo dinámico de variables en el nodo Code JS y encadenamiento seguro del comando de ataque con el de logging de Wazuh.
 
 ### 📋 PENDIENTE (en este orden)
-- Importar reglas Wazuh en servidor 10.10.10.49
-- Configuración de SMTP_PASS con Contraseña de Aplicación de Google (pendiente del usuario)
+- Probar todos los ataques que funcionen
+- Comprobar que se reflejan las alertas correspondientes en la parte defensiva
 - GitHub cleanup + README final
 
 ---
 
 ## PRÓXIMO PASO INMEDIATO
-El usuario debe configurar SMTP_PASS con una Contraseña de Aplicación de Google (16 chars) en .env.
-Instrucciones: myaccount.google.com → Seguridad → Contraseñas de aplicaciones.
+Comprobar ejecución real del ataque utilizando n8n y verificar visualización del reporte en PDF.
 
 ---
 

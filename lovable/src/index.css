@@ -336,4 +336,37 @@
   .custom-cursor-active, .custom-cursor-active * {
     cursor: none !important;
   }
+
+  /* WEBILD MARQUEE ANIMATION & MASKS FOR CYBERSHIELD */
+  @keyframes marquee-horizontal {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .animate-marquee-horizontal {
+    animation: marquee-horizontal 40s linear infinite;
+  }
+
+  .mask-fade-x-medium {
+    mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+  }
+
+  .mask-fade-top-long {
+    mask-image: linear-gradient(to bottom, transparent, white 40%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, white 40%);
+  }
+
+  .webild-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--primary) / 0.15);
+    border-radius: var(--radius);
+    transition: all 0.3s ease;
+  }
+
+  .webild-card:hover {
+    border-color: hsl(var(--primary) / 0.35);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.05);
+  }
 }
+

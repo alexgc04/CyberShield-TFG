@@ -656,6 +656,43 @@ app.get("/api/reports", verifyToken, async (req, res) => {
   }
 });
 
+// DELETE REPORT
+app.delete("/api/reports/:id", verifyToken, async (req, res) => {
+  try {
+    const reportLogId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(reportLogId)) {
+      return res.status(400).json({ success: false, error: "ID de reporte inválido." });
+    }
+    const db = mongoose.connection.db;
+    const logsCol = db.collection('attack_logs');
+    
+    const log = await logsCol.findOne({ _id: new mongoose.Types.ObjectId(reportLogId) });
+    if (!log) {
+      return res.status(404).json({ success: false, error: "Reporte no encontrado en base de datos." });
+    }
+
+    // Eliminar documento de MongoDB
+    await logsCol.deleteOne({ _id: new mongoose.Types.ObjectId(reportLogId) });
+
+    // Eliminar archivo físico si existe
+    if (log.report_id) {
+      const pdfPath = path.join(__dirname, "reports", `${log.report_id}.pdf`);
+      if (fs.existsSync(pdfPath)) {
+        try {
+          fs.unlinkSync(pdfPath);
+        } catch (fsErr) {
+          console.error(`Error deleting physical file ${pdfPath}:`, fsErr);
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting report log:", err);
+    res.status(500).json({ success: false, error: "Error interno al eliminar el reporte" });
+  }
+});
+
 // HEALTH CHECK — ping a servicios
 app.get("/api/health", async (req, res) => {
   const results = { mongodb: false, n8n: false, kali: false, wazuh: false };
@@ -701,7 +738,12 @@ app.get("/api/health", async (req, res) => {
     results.wazuh = r.ok;
   } catch { results.wazuh = false; }
 
-  res.json({ success: true, services: results });
+  res.json({ 
+    success: true, 
+    services: results,
+    kali_ip: process.env.SSH_HOST || '10.10.10.21',
+    wazuh_ip: process.env.WAZUH_HOST || '10.10.10.49'
+  });
 });
 
 // WAZUH ALERTS PROXY
@@ -1053,7 +1095,7 @@ app.post("/api/reports/generate", (req, res) => {
   // Extraer IP objetivo
   let targetIp = 'N/A';
   if (data.parameters) {
-    targetIp = data.parameters.target || data.parameters.ip || data.parameters.host || 'N/A';
+    targetIp = data.parameters.target_ip || data.parameters.target || data.parameters.ip || data.parameters.host || data.parameters.dc_ip || data.parameters.target_subnet || 'N/A';
   } else if (data.target) {
     targetIp = data.target;
   }
@@ -1235,9 +1277,12 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
           command: finalCommand,
           logger_command: finalLoggerCommand,
           parameters: params,
-          company_name: companyName => company_name || 'Empresa Auditada',
+          company_name: company_name || 'Empresa Auditada',
           company_name_val: company_name || 'Empresa Auditada',
-          report_id: reportId
+          report_id: reportId,
+          risk_level: template.risk_level,
+          wazuh_rule_id: template.wazuh_rule_id,
+          description: template.description
         })
       });
     } catch (fetchErr) {

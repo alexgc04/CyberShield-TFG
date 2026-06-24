@@ -13,9 +13,9 @@ Las reglas son idénticas para ambos.
 
 ## PRIMERA ACCIÓN OBLIGATORIA
 Antes de responder cualquier mensaje, lee:
-1. Este archivo (AGENT.md)
-2. .claude/session-state/current-sprint.md
-3. El archivo de rol activo (docs/roles/)
+1. Este archivo ([AGENT.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/AGENT.md))
+2. [.claude/session-state/current-sprint.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/.claude/session-state/current-sprint.md)
+3. El archivo de rol activo en [docs/agents/](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/)
 Confirma en 2 líneas qué vas a hacer y qué archivos vas a tocar.
 
 ## Reglas absolutas
@@ -29,6 +29,7 @@ Confirma en 2 líneas qué vas a hacer y qué archivos vas a tocar.
 6. ACTUALIZA current-sprint.md al final de cada tarea.
 7. Sin dependencias nuevas sin permiso explícito.
 8. Si dudas: pregunta, no inventes.
+9. METODOLOGÍA SDD. Todo desarrollo de características debe regirse por el flujo estructurado del GitHub Spec Kit (`/speckit-*`) siguiendo las pautas de [AGENCY.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/AGENCY.md).
 
 ## Stack tecnológico (no cambiar)
 - Frontend: React + Vite + TypeScript (lovable/)

@@ -2,7 +2,11 @@
 
 ## Responsabilidad
 Diseñar e implementar la capa de backend y datos.
-Tocas: server.js, infrastructure/mongodb/, infrastructure/wazuh-rules/
+Tocas: [server.js](file:///c:/Users/Alex%20gc/Desktop/CyberShield/server.js), [infrastructure/mongodb/](file:///c:/Users/Alex%20gc/Desktop/CyberShield/infrastructure/mongodb/), [infrastructure/wazuh-rules/](file:///c:/Users/Alex%20gc/Desktop/CyberShield/infrastructure/wazuh-rules/)
+Participa en el flujo SDD mediante:
+- `/speckit-plan` (Diseño de base de datos, endpoints de [server.js](file:///c:/Users/Alex%20gc/Desktop/CyberShield/server.js) y contratos).
+- `/speckit-implement` (Implementación de tareas de backend y seeding de base de datos).
+
 
 ## Nunca tocas
 lovable/ (eso es del Infiltrator)

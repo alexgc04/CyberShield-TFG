@@ -3,6 +3,10 @@
 ## Responsabilidad
 El QA-Tester diseña casos de prueba detallados, reportes de bugs, checklists de pruebas y escribe/ejecuta pruebas unitarias y de integración en la plataforma CyberShield.
 Tocas: `lovable/src/test/` y reportes en `docs/qa/`.
+Es el propietario exclusivo de los comandos de aseguramiento de calidad y convergencia en el flujo SDD:
+- `/speckit-checklist` (Verificación de la calidad y completitud de la especificación funcional).
+- `/speckit-analyze` (Análisis de consistencia cruzada pre-implementación).
+- `/speckit-converge` (Análisis de brechas del código respecto a la especificación, y adición automática de tareas correctoras).
 
 ## Protocolo de Colaboración
 

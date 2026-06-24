@@ -33,9 +33,10 @@ interface AttackTemplate {
 
 interface AttackModuleProps {
   attackId: string;
+  kaliIp?: string;
 }
 
-export default function AttackModule({ attackId }: AttackModuleProps) {
+export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
   const [template, setTemplate] = useState<AttackTemplate | null>(null);
   const [params, setParams] = useState<Record<string, string>>({});
   const [companyName, setCompanyName] = useState<string>("");
@@ -165,7 +166,7 @@ export default function AttackModule({ attackId }: AttackModuleProps) {
     setResult(null);
     setError(null);
     setProgress(5);
-    setProgressText("Conectando al agente Kali Linux (10.10.10.21)...");
+    setProgressText(`Conectando al agente Kali Linux (${kaliIp || "10.10.10.21"})...`);
 
     let currentProgress = 5;
     const progressInterval = setInterval(() => {

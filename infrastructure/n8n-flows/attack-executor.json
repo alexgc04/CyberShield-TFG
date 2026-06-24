@@ -22,7 +22,7 @@
                 "resource": "document",
                 "operation": "find",
                 "collection": "attack_templates",
-                "query": "={{ JSON.stringify({ id: $json.body.attack_id }) }}",
+                "query": "={\"name\": \"{{ $json.body.attack_name }}\"}",
                 "options": {
                     "limit": 1
                 }
@@ -44,7 +44,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const webhookData = $('Webhook').first().json.body;\nconst raw = $('MongoDB — Buscar plantilla').first().json;\nconst tmpl = Array.isArray(raw) ? raw[0] : raw;\n\nconst parameters = webhookData.parameters || {};\nconst companyName = webhookData.company_name || 'Empresa Auditada';\nconst reportId = 'CS-RPT-' + new Date().toISOString().slice(0,10) + '-' + webhookData.attack_id;\n\nfunction buildCommand(str, params) {\n  if (!str) return '';\n  return Object.entries(params).reduce((cmd, [key, value]) => {\n    return cmd.replace(new RegExp('\\\\{\\\\{' + key + '\\\\}\\\\}', 'g'), value || '');\n  }, str);\n}\n\nconst useAlt = parameters.target_ip && parameters.target_ip.trim() !== '';\nconst finalCommand = buildCommand(\n  useAlt && tmpl.command_alt ? tmpl.command_alt : tmpl.command,\n  parameters\n);\n\nreturn [{\n  json: {\n    attack_id: webhookData.attack_id,\n    attack_name: tmpl.name,\n    mitre_id: tmpl.mitre_id,\n    risk_level: tmpl.risk_level,\n    wazuh_rule_id: tmpl.wazuh_rule_id,\n    description: tmpl.description,\n    command: finalCommand,\n    parameters: parameters,\n    company_name: companyName,\n    report_id: reportId,\n    start_timestamp: new Date().toISOString()\n  }\n}];"
+                "jsCode": "const webhook = $('Webhook').first().json;\nconst webhookData = webhook.body || webhook || {};\nlet raw = [];\ntry {\n  raw = $('MongoDB — Buscar plantilla').first().json;\n} catch (e) {\n  raw = [];\n}\nconst tmpl = (Array.isArray(raw) && raw.length > 0) ? raw[0] : (raw && Object.keys(raw).length > 0 ? raw : null);\n\nconst parameters = webhookData.parameters || {};\nconst companyName = webhookData.company_name_val || webhookData.company_name || 'Empresa Auditada';\nconst reportId = webhookData.report_id || ('CS-RPT-' + new Date().toISOString().slice(0,10) + '-' + webhookData.attack_id);\n\nconst name = tmpl ? tmpl.name : webhookData.attack_name;\nconst mitre_id = tmpl ? tmpl.mitre_id : webhookData.mitre_id;\nconst risk_level = tmpl ? tmpl.risk_level : webhookData.risk_level;\nconst wazuh_rule_id = tmpl ? tmpl.wazuh_rule_id : webhookData.wazuh_rule_id;\nconst description = tmpl ? tmpl.description : webhookData.description;\n\nlet command = (tmpl ? tmpl.command : '') || webhookData.command;\nlet logger_command = (tmpl ? tmpl.logger_command : '') || webhookData.logger_command;\n\n// Reemplazo dinamico de parámetros en n8n como salvaguarda\nif (command && parameters) {\n  for (const key in parameters) {\n    const val = parameters[key];\n    command = command.replace(new RegExp('{{' + key + '}}', 'g'), val || '');\n  }\n}\nif (logger_command && parameters) {\n  for (const key in parameters) {\n    const val = parameters[key];\n    logger_command = logger_command.replace(new RegExp('{{' + key + '}}', 'g'), val || '');\n  }\n}\n\nreturn [{ \n  json: {\n    attack_id: webhookData.attack_id,\n    attack_name: name,\n    mitre_id: mitre_id,\n    risk_level: risk_level,\n    wazuh_rule_id: wazuh_rule_id,\n    description: description,\n    command: command,\n    logger_command: logger_command,\n    parameters: parameters,\n    company_name: companyName,\n    report_id: reportId,\n    start_timestamp: new Date().toISOString()\n  }\n}];"
             },
             "id": "node-code",
             "name": "Code — Construir comandos",
@@ -59,7 +59,7 @@
             "parameters": {
                 "resource": "command",
                 "operation": "execute",
-                "command": "={{ $json.command }}"
+                "command": "=timeout 10s {{ $json.command }} ; {{ $json.logger_command ? $json.logger_command : '' }}"
             },
             "id": "node-ssh-attack",
             "name": "SSH — Ejecutar ataque en Kali",

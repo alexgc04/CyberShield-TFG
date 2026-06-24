@@ -2,7 +2,11 @@
 
 ## Responsabilidad
 Integración defensiva: Wazuh, correlación de alertas, validación.
-Tocas: infrastructure/wazuh-rules/, lovable/src/pages/Defensive.tsx
+Tocas: [infrastructure/wazuh-rules/](file:///c:/Users/Alex%20gc/Desktop/CyberShield/infrastructure/wazuh-rules/), [lovable/src/pages/Defensive.tsx](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/pages/Defensive.tsx)
+Participa en el flujo SDD mediante:
+- `/speckit-plan` (Diseño de reglas Wazuh, IDs de regla y logs esperados).
+- `/speckit-implement` (Implementación de las reglas en `local_rules.xml` e integración en el dashboard defensivo).
+
 
 ## Tarea principal por módulo
 Verificar que la regla Wazuh está en local_rules.xml con:

@@ -27,6 +27,45 @@
 
 ---
 
+## Metodología Spec-Driven Development (SDD)
+
+Para asegurar la calidad y consistencia del proyecto, CyberShield sigue una metodología de Desarrollo Guiado por Especificaciones (Spec-Driven Development o SDD) mediante los comandos `/speckit-*` de GitHub Spec Kit. Esta metodología se coordina entre los diferentes roles de la siguiente manera:
+
+1. **Constitución (`/speckit-constitution`)**:
+   - **Responsable:** [Lead Project Manager](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/LEAD-PM.md).
+   - **Participantes:** Todo el equipo.
+   - **Objetivo:** Establecer las reglas no negociables de arquitectura, diseño de interfaces, seguridad y pruebas que rigen el proyecto en [.specify/memory/constitution.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/.specify/memory/constitution.md).
+
+2. **Especificación (`/speckit-specify`)**:
+   - **Responsable:** [Lead Project Manager](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/LEAD-PM.md) / [Analyst](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ANALYST.md).
+   - **Objetivo:** Definir los requisitos funcionales de los ataques y mecanismos de detección a nivel de negocio y casos de uso, de forma agnóstica a la tecnología.
+
+3. **Listas de Control (`/speckit-checklist`)**:
+   - **Responsable:** [QA-Tester](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/QA-TESTER.md).
+   - **Objetivo:** Validar la calidad y completitud de las especificaciones en base a plantillas de calidad de requisitos (UX, API, Seguridad).
+
+4. **Planificación (`/speckit-plan`)**:
+   - **Responsable:** [Architect](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ARCHITECT.md) (Backend/DB) / [Infiltrator](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/INFILTRATOR.md) (UI) / [Analyst](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ANALYST.md) (Wazuh).
+   - **Objetivo:** Traducir los requisitos funcionales en un plan técnico detallado (modelos de datos, contratos de interfaz y flujos de red n8n).
+
+5. **Análisis de Consistencia (`/speckit-analyze`)**:
+   - **Responsable:** [QA-Tester](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/QA-TESTER.md).
+   - **Objetivo:** Verificar la coherencia cruzada entre especificación, plan y dependencias antes del inicio del desarrollo.
+
+6. **Desglose de Tareas (`/speckit-tasks`)**:
+   - **Responsable:** [Lead Project Manager](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/LEAD-PM.md) / [Architect](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ARCHITECT.md).
+   - **Objetivo:** Generar una lista de tareas estructurada, secuencial y paralelizable (`tasks.md`) con criterios de pruebas unitarias.
+
+7. **Implementación (`/speckit-implement`)**:
+   - **Responsables:** [Architect](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ARCHITECT.md) (server.js/MongoDB), [Infiltrator](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/INFILTRATOR.md) (React/Offensive.tsx), [Analyst](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/ANALYST.md) (local_rules.xml).
+   - **Objetivo:** Escribir el código y la configuración correspondiente a cada tarea en orden de dependencias.
+
+8. **Convergencia (`/speckit-converge`)**:
+   - **Responsable:** [QA-Tester](file:///c:/Users/Alex%20gc/Desktop/CyberShield/docs/agents/QA-TESTER.md).
+   - **Objetivo:** Validar que el código final cumple exactamente con la especificación y los criterios de aceptación del plan, inyectando tareas de corrección si se detectan brechas (`missing`, `partial`, `contradicts`, `unrequested`).
+
+---
+
 ## SOP (Standard Operating Procedure) — Por cada módulo
 
 **Paso 1 — Architect: MongoDB Template**

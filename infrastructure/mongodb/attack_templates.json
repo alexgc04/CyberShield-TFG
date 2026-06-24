@@ -19,6 +19,15 @@
         "hint": "Usar eth0 (bridge Proxmox Capa 2). No usar tun0."
       },
       {
+        "name": "target_ip",
+        "label": "IP de la víctima",
+        "type": "text",
+        "default": "",
+        "required": true,
+        "placeholder": "192.168.1.50",
+        "hint": "IP del host en el segmento local que se simula auditar"
+      },
+      {
         "name": "count",
         "label": "Número de tramas",
         "type": "number",
@@ -27,7 +36,7 @@
         "placeholder": "5000"
       }
     ],
-    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: MAC Flooding detected on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557\""
+    "logger_command": "logger -t CyberShield -p local0.alert \"SEC_VIOLATION: MAC Flooding detected targeting {{target_ip}} on Port 1 - Interface {{interface}} - {{count}} packets sent - CAM Table Overflow confirmed - MITRE:T1557\""
   },
   {
     "id": "LAN-002",

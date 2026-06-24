@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
   FileText, Download, Search, AlertTriangle, CheckCircle2, 
-  ShieldAlert, Calendar, RefreshCw, Loader2, Play
+  ShieldAlert, Calendar, RefreshCw, Loader2, Play, Trash2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -73,7 +73,38 @@ export default function Reports() {
     return "bg-purple-500/10 text-purple-500 border-purple-500/30";
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("¿Estás seguro de que deseas eliminar permanentemente este reporte? Se borrará el registro y el archivo PDF del servidor.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/reports/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          title: "Reporte eliminado",
+          description: "El reporte se ha eliminado correctamente del sistema."
+        });
+        fetchReports();
+      } else {
+        throw new Error(data.error || "No se pudo eliminar el reporte.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Error al eliminar",
+        description: err.message || "Ocurrió un error al intentar eliminar el reporte.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredReports = reports.filter((rpt) => {
+    // Ocultar reportes sin PDF (ejecuciones fallidas)
+    if (!rpt.pdf_url) return false;
+
     const query = searchQuery.toLowerCase();
     const matchesSearch = 
       rpt.attack_name?.toLowerCase().includes(query) ||
@@ -235,6 +266,13 @@ export default function Reports() {
                       PDF NO DISPONIBLE
                     </Button>
                   )}
+                  <Button
+                    onClick={() => handleDelete(rpt._id)}
+                    className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/30 text-red-500 font-mono text-xs h-8 flex items-center justify-center p-2.5 rounded-lg transition-all"
+                    title="Eliminar Reporte"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </Card>
             ))}

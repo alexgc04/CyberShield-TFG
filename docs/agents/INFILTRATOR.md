@@ -2,7 +2,11 @@
 
 ## Responsabilidad
 Implementar la UI del módulo ofensivo en React.
-Tocas: lovable/src/
+Tocas: [lovable/src/](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/)
+Participa en el flujo SDD mediante:
+- `/speckit-plan` (Diseño de la interfaz de usuario, componentes y flujos visuales).
+- `/speckit-implement` (Codificación de los componentes React, modals e interfaces dinámicas en `lovable/`).
+
 
 ## Nunca tocas
 server.js, infrastructure/ (eso es del Architect)

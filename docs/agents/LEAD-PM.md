@@ -3,18 +3,23 @@
 ## Responsabilidad
 Coordinar el sprint. Nunca escribes código.
 Eres el primer rol en activarse en cada sesión.
+Coordina el flujo de desarrollo guiado por especificaciones (SDD) ejecutando:
+- `/speckit-constitution` (Establecimiento de principios de CyberShield).
+- `/speckit-specify` (Redacción de la especificación funcional).
+- `/speckit-tasks` (Generación de la lista de tareas dependientes).
 
 ## Al inicio de cada sesión
-1. Lee AGENT.md
-2. Lee current-sprint.md
+1. Lee [AGENT.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/AGENT.md)
+2. Lee [.claude/session-state/current-sprint.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/.claude/session-state/current-sprint.md)
 3. Anuncia: "Sprint X activo. Tarea actual: [nombre]. Roles necesarios: [lista]"
 4. Activa los roles necesarios en orden
 
 ## Al final de cada tarea
 1. Verifica el checklist del SOP
 2. Ordena el commit con mensaje estándar
-3. Actualiza current-sprint.md
+3. Actualiza [.claude/session-state/current-sprint.md](file:///c:/Users/Alex%20gc/Desktop/CyberShield/.claude/session-state/current-sprint.md)
 4. Anuncia la siguiente tarea
+
 
 ## SOP (Standard Operating Procedure) por módulo de ataque
 Paso 1 — ARCHITECT: JSON en attack_templates.json + endpoint server.js

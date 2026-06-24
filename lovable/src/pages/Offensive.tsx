@@ -106,6 +106,8 @@ export default function Offensive() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
   const [terminalInput, setTerminalInput] = useState("");
+  const [kaliIp, setKaliIp] = useState<string>("10.10.10.21");
+  const [wazuhIp, setWazuhIp] = useState<string>("10.10.10.49");
   
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
     { text: "========================================================================", type: "system" },
@@ -123,6 +125,7 @@ export default function Offensive() {
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Fetch templates
     fetch("/api/attacks/templates")
       .then((res) => res.json())
       .then((data) => {
@@ -131,6 +134,32 @@ export default function Offensive() {
         }
       })
       .catch((err) => console.error("Error fetching templates:", err));
+
+    // Fetch dynamic IP config from health endpoint
+    fetch("/api/health")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          const kIp = data.kali_ip || "10.10.10.21";
+          const wIp = data.wazuh_ip || "10.10.10.49";
+          setKaliIp(kIp);
+          setWazuhIp(wIp);
+          
+          setTerminalLines([
+            { text: "========================================================================", type: "system" },
+            { text: "🛡️ CYBERSHIELD ADVANCED ATTACK SIMULATOR (CLI SESSION ACTIVE)", type: "success" },
+            { text: "========================================================================", type: "system" },
+            { text: `Host: kali-linux-attack-node (${kIp})`, type: "info" },
+            { text: "Status: Connected via SSH (Port 22)", type: "info" },
+            { text: `Wazuh Manager: Active (${wIp})`, type: "info" },
+            { text: "", type: "info" },
+            { text: "Escribe 'help' para ver la lista de comandos disponibles.", type: "info" },
+            { text: "Utiliza el panel superior para interactuar con los módulos ofensivos.", type: "info" },
+            { text: "========================================================================", type: "system" },
+          ]);
+        }
+      })
+      .catch((err) => console.error("Error fetching health data for Offensive page:", err));
   }, []);
 
   // Scroll to bottom on new terminal lines
@@ -171,7 +200,7 @@ export default function Offensive() {
         case "status":
           setTerminalLines(prev => [
             ...prev,
-            { text: "[+] Hostname: kali-linux-attack-node (10.10.10.21)", type: "info" },
+            { text: `[+] Hostname: kali-linux-attack-node (${kaliIp})`, type: "info" },
             { text: "[+] SSH Connect Tunnel: ACTIVE", type: "success" },
             { text: "[+] Wazuh Rule Trigger Mapping: STABLE", type: "success" },
             { text: "[+] Database (MongoDB): CONNECTED (Atlas)", type: "success" },
@@ -243,8 +272,8 @@ export default function Offensive() {
           <div className="flex flex-wrap gap-2.5 text-[10px]">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-card border border-border/40">
               <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <span className="text-muted-foreground">KALI TARGET:</span>
-              <span className="text-foreground font-bold">10.10.10.21</span>
+              <span className="text-muted-foreground">KALI NODE:</span>
+              <span className="text-foreground font-bold">{kaliIp}</span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-card border border-border/40">
               <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
@@ -303,7 +332,7 @@ export default function Offensive() {
         ) : (
           <div className="flex flex-col gap-6">
             {filteredTemplates.map((t) => (
-              <AttackModule key={t.id} attackId={t.id} />
+              <AttackModule key={t.id} attackId={t.id} kaliIp={kaliIp} />
             ))}
           </div>
         )}
@@ -321,7 +350,7 @@ export default function Offensive() {
               <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
               <TerminalIcon className="w-3.5 h-3.5 text-primary" />
               <span className="text-xs text-primary font-bold tracking-widest uppercase">
-                Consola Linux Kali @ 10.10.10.21
+                Consola Linux Kali @ {kaliIp}
               </span>
             </div>
             
