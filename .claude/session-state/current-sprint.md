@@ -37,10 +37,29 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 - **Sprint 2: Dashboards reales con datos reales ✅**
 - **Sprint 0: Limpieza y Auth ✅**
 - Configuración de flujo de n8n completada ✅ (Reemplazo dinámico de variables en código JS, query Mongo por attack_name, timeout en la ejecución Kali para evitar loops infinitos de comandos continuos).
+- Rediseño visual de "Wazuh Security Modules" en `Defensive.tsx` completado ✅ (Layout idéntico al Wazuh Overview oficial, etiquetas flotantes superiores y módulo CyberShield resaltado en verde con conteo de reglas).
 
 ### 🔄 EN CURSO
-- Probando que todos los campos de MAC Flooding funcionan
-- Validación de que los outputs de ataque se capturen con éxito después de aplicar el timeout `timeout 10s sudo <command>`.
+- **Fase de Validación de Ataques y Correlación (Sprint 1 & 2)**:
+  - [x] Conectar Wazuh Agent en Kali con Wazuh Manager en Debian (Registro manual via key import ✅)
+  - [/] Validar la ejecución y correlación en tiempo real de los 15 módulos del TFG:
+    - [ ] **MOD01: MAC Flooding** (LAN-001) -> Comando de red: `macof`
+    - [ ] **MOD02: Switch Port Stealing** (LAN-002) -> Comando de red: `arpspoof`
+    - [ ] **MOD03: SPAN/Port Mirror** (LAN-003) -> Comando de red: `tcpdump`
+    - [ ] **MOD04: Túneles/Canales Encubiertos** (LAN-004) -> Comando de red: `nping`
+    - [ ] **MOD05a: ARP Spoofing (Inyección)** (LAN-005a) -> Comando de red: `arpspoof`
+    - [ ] **MOD05b: ARP Spoofing (MitM)** (LAN-005b) -> Comando de red: `arpspoof -t`
+    - [ ] **MOD06: DHCP Starvation** (LAN-006) -> Comando de red: `yersinia`
+    - [ ] **MOD07: Scapy SYN Scan** (SCAPY-001) -> Script inline de Python3 con Scapy
+    - [ ] **MOD08: Scapy ACK Scan** (SCAPY-002) -> Script inline de Python3 con Scapy
+    - [ ] **MOD09: Scapy ARP Scan** (SCAPY-003) -> Script inline de Python3 con Scapy
+    - [ ] **MOD10: Scapy Fuzzing** (SCAPY-004) -> Script inline de Python3 con Scapy
+    - [ ] **MOD11: Fuerza Bruta SSH** (BF-001) -> Auditoría con Medusa
+    - [ ] **MOD12: Fuerza Bruta Web** (BF-002) -> Auditoría con Hydra
+    - [ ] **MOD13: Escalada de Privilegios Local** (PRIV-001) -> Auditoría de SUID/sudo/cron
+    - [ ] **MOD14: Escalada de Dominio Kerberos** (PRIV-002) -> Kerbrute + GetNPUsers (Active Directory)
+  - [ ] Comprobar que todas las alertas correspondientes se reflejan automáticamente en el Dashboard Defensivo ([/defensive](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/pages/Defensive.tsx)) al ejecutarse.
+  - [ ] Verificar la descarga del PDF de reporte técnico generado para cada módulo en la sección [/reports](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/pages/Reports.tsx).
 
 - **Sprint 1: Módulos de Ataque ✅**
   - Actualizado `attack_templates.json` a exactamente 15 módulos (14 LAN/Scapy/Brute/PrivEsc + PRIV-002 Kerberos a petición del usuario).

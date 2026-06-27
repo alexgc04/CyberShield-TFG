@@ -40,7 +40,8 @@
                     "id": "MONGO_CREDENTIAL_ID",
                     "name": "MongoDB Atlas"
                 }
-            }
+            },
+            "onError": "continueRegular"
         },
         {
             "parameters": {

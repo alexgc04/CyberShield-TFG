@@ -8,7 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   ShieldCheck, AlertTriangle, RefreshCw, Loader2, Link as LinkIcon,
   Activity, Server, Target, CheckCircle2, XCircle, AlertCircle, Eye,
-  Play, ShieldAlert, Cpu, Terminal
+  Play, ShieldAlert, Cpu, Terminal,
+  Shield, Bug, FileSearch, Crosshair, GitBranch, CreditCard, Lock,
+  Network, Zap, Key, ArrowUpCircle
 } from "lucide-react";
 import WazuhAlertDetail from "@/components/defensive/WazuhAlertDetail";
 import { useToast } from "@/hooks/use-toast";
@@ -31,11 +33,14 @@ export default function Defensive() {
   const [verifyingAll, setVerifyingAll] = useState(false);
   
   const [selectedAlert, setSelectedAlert] = useState<WazuhAlert | null>(null);
-  const [onlyCyberShield, setOnlyCyberShield] = useState(true);
+  const [alertFilterType, setAlertFilterType] = useState<"cybershield" | "wazuh" | "all">("cybershield");
   
-  const [indexerUrl, setIndexerUrl] = useState("https://10.10.10.49:9200");
-  const [managerUrl, setManagerUrl] = useState("https://10.10.10.49:55000");
-  const [isConnected, setIsConnected] = useState(false);
+  const [indexerUrlInput, setIndexerUrlInput] = useState(() => localStorage.getItem("wazuh_indexer_url") || "");
+  const [managerUrlInput, setManagerUrlInput] = useState(() => localStorage.getItem("wazuh_manager_url") || "");
+  
+  const [activeIndexerUrl, setActiveIndexerUrl] = useState(() => localStorage.getItem("wazuh_indexer_url") || "");
+  const [activeManagerUrl, setActiveManagerUrl] = useState(() => localStorage.getItem("wazuh_manager_url") || "");
+  const [isConnected, setIsConnected] = useState(() => localStorage.getItem("wazuh_connected") === "true");
 
   const [agentsError, setAgentsError] = useState("");
   const [alertsError, setAlertsError] = useState("");
@@ -45,17 +50,26 @@ export default function Defensive() {
 
   const { toast } = useToast();
 
-  const loadData = useCallback(async (showToast = false) => {
+  const loadData = useCallback(async (
+    showToast = false, 
+    indexerToUse = activeIndexerUrl, 
+    managerToUse = activeManagerUrl, 
+    filterToUse = alertFilterType
+  ) => {
     setLoading(true);
     setAgentsError("");
     setAlertsError("");
+
+    const resolvedIndexer = indexerToUse.trim();
+    const resolvedManager = managerToUse.trim();
 
     let agentsSuccess = false;
     let alertsSuccess = false;
 
     // 1. Fetch Agents via local proxy
     try {
-      const agentsRes = await fetch(`/api/wazuh/agents?managerUrl=${encodeURIComponent(managerUrl)}`);
+      const urlParam = resolvedManager ? `?managerUrl=${encodeURIComponent(resolvedManager)}` : "";
+      const agentsRes = await fetch(`/api/wazuh/agents${urlParam}`);
       const agentsData = await agentsRes.json();
       if (agentsData.success) {
         setAgents(agentsData.agents || []);
@@ -69,7 +83,11 @@ export default function Defensive() {
 
     // 2. Fetch Alerts via local proxy
     try {
-      const alertsRes = await fetch(`/api/wazuh/alerts?indexerUrl=${encodeURIComponent(indexerUrl)}`);
+      const indexerParam = resolvedIndexer ? `indexerUrl=${encodeURIComponent(resolvedIndexer)}` : "";
+      const filterParam = `filterType=${filterToUse}`;
+      const queryParams = [indexerParam, filterParam].filter(Boolean).join("&");
+      
+      const alertsRes = await fetch(`/api/wazuh/alerts?${queryParams}`);
       const alertsData = await alertsRes.json();
       if (alertsData.success) {
         setAlerts(alertsData.alerts || []);
@@ -94,6 +112,7 @@ export default function Defensive() {
 
     const connected = agentsSuccess || alertsSuccess;
     setIsConnected(connected);
+    localStorage.setItem("wazuh_connected", connected ? "true" : "false");
     setLoading(false);
 
     if (showToast) {
@@ -105,7 +124,7 @@ export default function Defensive() {
         variant: connected ? "default" : "destructive"
       });
     }
-  }, [indexerUrl, managerUrl, toast]);
+  }, [activeIndexerUrl, activeManagerUrl, alertFilterType, toast]);
 
   useEffect(() => {
     loadData(false);
@@ -114,10 +133,22 @@ export default function Defensive() {
     return () => clearInterval(interval);
   }, [loadData]);
 
+  const handleConnect = async () => {
+    setActiveIndexerUrl(indexerUrlInput);
+    setActiveManagerUrl(managerUrlInput);
+    
+    localStorage.setItem("wazuh_indexer_url", indexerUrlInput);
+    localStorage.setItem("wazuh_manager_url", managerUrlInput);
+    
+    await loadData(true, indexerUrlInput, managerUrlInput);
+  };
+
   // Verificar correlación para un ataque individual (±5 minutos)
   const handleVerifyCorrelation = async (attack: AttackLog) => {
     const id = attack._id;
     setCorrelationStates(prev => ({ ...prev, [id]: "loading" }));
+
+    const resolvedIndexer = activeIndexerUrl.trim();
 
     try {
       const attackTime = new Date(attack.timestamp).getTime();
@@ -131,7 +162,7 @@ export default function Defensive() {
           attack_id: id,
           timestamp_start,
           timestamp_end,
-          indexerUrl
+          indexerUrl: resolvedIndexer
         })
       });
 
@@ -165,72 +196,92 @@ export default function Defensive() {
     });
   };
 
-  // Filtrado de alertas CyberShield
-  const filteredAlerts = alerts.filter(alert => {
-    if (!onlyCyberShield) return true;
-    const rid = Number(alert.rule.id || alert.rule_id);
-    return rid >= 100499 && rid <= 100513;
-  });
+  // El filtrado de alertas ahora se gestiona directamente en el servidor proxy
+  const filteredAlerts = alerts;
+
+  const criticalCount = alerts.filter(a => (a.rule?.level ?? 0) >= 15).length;
+  const highCount = alerts.filter(a => {
+    const lvl = a.rule?.level ?? 0;
+    return lvl >= 12 && lvl <= 14;
+  }).length;
+  const mediumCount = alerts.filter(a => {
+    const lvl = a.rule?.level ?? 0;
+    return lvl >= 7 && lvl <= 11;
+  }).length;
+  const lowCount = alerts.filter(a => {
+    const lvl = a.rule?.level ?? 0;
+    return lvl >= 0 && lvl <= 6;
+  }).length;
+
+  const activeAgents = agents.filter(a => a.status === "active").length;
 
   return (
-    <div className="relative space-y-6 select-none font-mono">
-      {/* Background matrix mesh overlay */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none z-0" />
+    <div className="relative space-y-6 select-none font-sans pb-10">
+      {/* Background broken shield watermark */}
+      <div 
+        className="absolute inset-0 bg-no-repeat bg-center opacity-[0.035] pointer-events-none z-0 animate-shield-fracture" 
+        style={{ 
+          backgroundImage: "url('/images/broken-shield.png')",
+          backgroundSize: "600px",
+          backgroundPosition: "center 50%"
+        }} 
+      />
       
       <div className="relative z-10 space-y-6">
         
-        {/* CABECERA Y ZONA 1 (Configuración de conexión) */}
-        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-black/40 border border-primary/10 rounded-lg p-5 backdrop-blur-xl animate-fade-slide-up">
+        {/* CABECERA Y CONFIGURACIÓN DE CONEXIÓN */}
+        <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-card/60 border border-border/80 rounded-lg p-5 backdrop-blur-xl animate-fade-slide-up">
           <div>
-            <h1 className="text-2xl font-bold font-mono text-primary text-glow-green flex items-center gap-2">
-              <ShieldCheck className="w-7 h-7 text-primary animate-pulse" />
+            <h1 className="text-xl font-extrabold text-foreground flex items-center gap-2">
+              <ShieldCheck className="w-6 h-6 text-primary animate-pulse" />
               MÓDULO DEFENSIVO (WAZUH SIEM)
             </h1>
-            <p className="text-xs text-muted-foreground font-mono mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Visualización de alertas del sistema, auditoría de agentes y correlación cruzada ofensiva/defensiva.
             </p>
           </div>
 
-          {/* ZONA 1 — Configuración de Wazuh */}
           <div className="flex flex-wrap items-end gap-4 w-full xl:w-auto">
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground uppercase tracking-widest">Wazuh Indexer URL</Label>
+              <Label className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Wazuh Indexer URL</Label>
               <Input
-                value={indexerUrl}
-                onChange={(e) => setIndexerUrl(e.target.value)}
-                className="h-8 w-60 text-xs bg-background/60 border-primary/20 focus:border-primary text-primary"
+                placeholder="https://<IP_WAZUH_INDEXER>:9200"
+                value={indexerUrlInput}
+                onChange={(e) => setIndexerUrlInput(e.target.value)}
+                className="h-8 w-60 text-xs bg-background/60 border-border focus:border-primary text-foreground font-mono"
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] text-muted-foreground uppercase tracking-widest">Wazuh Manager URL</Label>
+              <Label className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Wazuh Manager URL</Label>
               <Input
-                value={managerUrl}
-                onChange={(e) => setManagerUrl(e.target.value)}
-                className="h-8 w-60 text-xs bg-background/60 border-primary/20 focus:border-primary text-primary"
+                placeholder="https://<IP_WAZUH_MANAGER>:55000"
+                value={managerUrlInput}
+                onChange={(e) => setManagerUrlInput(e.target.value)}
+                className="h-8 w-60 text-xs bg-background/60 border-border focus:border-primary text-foreground font-mono"
               />
             </div>
             
             <div className="flex gap-2 items-center">
               <Button
-                onClick={() => loadData(true)}
+                onClick={handleConnect}
                 disabled={loading}
-                className="h-8 px-4 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 glow-green font-bold text-xs"
+                className="h-8 px-4 bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-bold text-xs"
               >
                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RefreshCw className="w-3.5 h-3.5 mr-2" />}
                 CONECTAR
               </Button>
 
               {/* Status Badge */}
-              <div className="flex items-center gap-2 bg-background/60 border border-primary/20 rounded-md px-3 h-8 text-xs select-none">
-                <span className="text-[10px] text-muted-foreground">ESTADO:</span>
+              <div className="flex items-center gap-2 bg-background/60 border border-border rounded-md px-3 h-8 text-xs select-none">
+                <span className="text-[9px] text-muted-foreground font-bold">ESTADO:</span>
                 {isConnected ? (
-                  <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px] font-bold flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_#00ff41]" />
+                  <Badge className="bg-primary/10 text-primary border-primary/30 text-[9px] font-bold flex items-center gap-1.5 px-2 py-0.5 pointer-events-none">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_hsl(var(--primary))]" />
                     CONECTADO
                   </Badge>
                 ) : (
-                  <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-[10px] font-bold flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+                  <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-[9px] font-bold flex items-center gap-1.5 px-2 py-0.5 pointer-events-none">
+                    <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
                     DESCONECTADO
                   </Badge>
                 )}
@@ -239,189 +290,500 @@ export default function Defensive() {
           </div>
         </div>
 
-        {/* REJILLA DE ZONAS 2 Y 4 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* ZONA 2 — Agentes Wazuh */}
-          <Card className="bg-black/60 border border-primary/10 backdrop-blur-xl animate-fade-slide-up [animation-delay:0.1s]">
-            <CardHeader className="border-b border-primary/5 pb-4">
-              <CardTitle className="text-sm text-primary text-glow-green flex items-center gap-2 uppercase font-mono">
-                <Cpu className="w-4 h-4 text-primary" />
-                Agentes Wazuh Registrados ({agents.length})
-              </CardTitle>
-              <CardDescription className="text-[10px] text-muted-foreground font-mono">
-                Lista de endpoints e infraestructura monitorizada por Wazuh Manager.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 h-[350px] overflow-y-auto">
-              {agentsError ? (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
-                  <AlertCircle className="w-8 h-8 text-destructive animate-pulse" />
-                  <p className="text-sm font-bold text-destructive font-mono">{agentsError}</p>
+        {/* GUÍA DE CONEXIÓN / AYUDA */}
+        <Card className="bg-card/30 border border-border/40 p-4 backdrop-blur-md animate-fade-slide-up">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-primary/10 border border-primary/20 text-primary rounded-md shrink-0 mt-0.5">
+              <ShieldCheck className="w-4 h-4 animate-pulse" />
+            </div>
+            <div className="space-y-1 flex-1">
+              <h4 className="text-xs font-bold text-foreground uppercase tracking-wider font-mono">Guía de Conexión SIEM (Wazuh)</h4>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                Para vincular tu entorno de auditoría defensiva, introduce las direcciones HTTPS correspondientes. Si dejas los campos en blanco, la plataforma utilizará automáticamente las variables de entorno preconfiguradas del servidor proxy.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 mt-2 border-t border-border/20 text-[10px] font-mono leading-relaxed">
+                <div>
+                  <strong className="text-primary uppercase block mb-1">🔗 Servidor Indexador (Wazuh Indexer):</strong>
+                  <p className="text-zinc-500">
+                    Introduce la URL HTTPS completa del indexador de Wazuh. Por ejemplo: <code className="text-foreground">https://&lt;DIRECCION_IP&gt;:9200</code>.
+                  </p>
                 </div>
-              ) : agents.length === 0 ? (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-xs text-muted-foreground font-mono">No se encontraron agentes registrados.</p>
+                <div>
+                  <strong className="text-primary uppercase block mb-1">💻 API del Administrador (Wazuh Manager):</strong>
+                  <p className="text-zinc-500">
+                    Introduce la URL HTTPS completa de la API del administrador. Por ejemplo: <code className="text-foreground">https://&lt;DIRECCION_IP&gt;:55000</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* FILA DE METRICAS DE WAZUH - ESTILO REAL */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 animate-fade-slide-up">
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
+            <CardContent className="p-4 text-center">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Agentes Activos</span>
+              <span className="text-3xl font-extrabold text-primary">{activeAgents} / {agents.length}</span>
+              <span className="text-[9px] text-muted-foreground block mt-1">Conectados a Wazuh</span>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
+            <CardContent className="p-4 text-center">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Critical severity</span>
+              <span className="text-3xl font-extrabold text-destructive text-glow-red">{criticalCount}</span>
+              <span className="text-[9px] text-muted-foreground block mt-1">Nivel 15 o superior</span>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
+            <CardContent className="p-4 text-center">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">High severity</span>
+              <span className="text-3xl font-extrabold text-orange-500">{highCount}</span>
+              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 12 a 14</span>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
+            <CardContent className="p-4 text-center">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Medium severity</span>
+              <span className="text-3xl font-extrabold text-secondary">{mediumCount}</span>
+              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 7 a 11</span>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl col-span-2 md:col-span-1">
+            <CardContent className="p-4 text-center">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Low severity</span>
+              <span className="text-3xl font-extrabold text-emerald-500">{lowCount}</span>
+              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 0 a 6</span>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* REJILLA BENTO - COMPACTA */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-10">
+          
+          {/* COLUMNA 1: Agentes y Módulos */}
+          <div className="space-y-6 flex flex-col justify-between">
+            {/* Agentes Wazuh */}
+            <Card className="bg-card/50 border border-border/80 backdrop-blur-xl flex-1 flex flex-col min-h-[220px]">
+              <CardHeader className="border-b border-border/20 pb-3">
+                <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
+                  <Cpu className="w-4 h-4 text-primary" />
+                  Agentes Wazuh Registrados ({agents.length})
+                </CardTitle>
+                <CardDescription className="text-[9px] text-muted-foreground">
+                  Endpoints monitorizados por el Manager.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-3 overflow-y-auto max-h-[160px] flex-1">
+                {agentsError ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-4">
+                    <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
+                    <p className="text-[10px] font-bold text-destructive">{agentsError}</p>
+                  </div>
+                ) : agents.length === 0 ? (
+                  <div className="h-full flex items-center justify-center py-4">
+                    <p className="text-[10px] text-muted-foreground">No se encontraron agentes registrados.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="text-[9px] text-muted-foreground uppercase border-b border-border/20 pb-1">
+                          <th className="py-1">ID</th>
+                          <th className="py-1">Nombre</th>
+                          <th className="py-1">Estado</th>
+                          <th className="py-1">IP</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/20">
+                        {agents.map((agent) => {
+                          const statusStyle = getAgentStatusStyle(agent.status);
+                          const isKali = agent.name.toLowerCase().includes("kali");
+                          return (
+                            <tr key={agent.id} className={`hover:bg-primary/5 transition-colors ${isKali ? "bg-primary/5 font-semibold text-primary" : ""}`}>
+                              <td className="py-1.5 font-mono text-[10px] text-primary/70">{agent.id}</td>
+                              <td className="py-1.5 flex items-center gap-1">
+                                {agent.name}
+                                {isKali && <Badge className="text-[8px] bg-primary/20 text-primary border-primary/30 px-1 py-0 scale-90 pointer-events-none">Kali Agent</Badge>}
+                              </td>
+                              <td className="py-1.5">
+                                <Badge className={`text-[8px] uppercase tracking-wider font-bold ${statusStyle.badgeClass} px-1.5 py-0 pointer-events-none`}>
+                                  <span className={`w-1 h-1 rounded-full mr-1 ${statusStyle.dotClass}`} />
+                                  {statusStyle.label}
+                                </Badge>
+                              </td>
+                              <td className="py-1.5 font-mono text-[10px] text-muted-foreground">{agent.ip || "N/A"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* MÓDULOS DE SEGURIDAD WAZUH (Estilo Real) */}
+            <Card className="bg-card/50 border border-border/80 backdrop-blur-xl p-5 space-y-6">
+              <div>
+                <h3 className="text-xs text-primary uppercase font-bold tracking-widest flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-primary" />
+                  Wazuh Security Modules
+                </h3>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Módulos operativos y directivas de seguridad monitorizadas.</p>
+              </div>
+
+              <div className="space-y-6">
+                {/* ENDPOINT SECURITY */}
+                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
+                    Endpoint Security
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Config Assessment</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Evaluación de hardening y cumplimiento</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Bug className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Malware Detection</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Firmas e IOCs de amenazas activas</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                      <FileSearch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">File Integrity Monitoring</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Control de cambios en archivos críticos</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* THREAT INTELLIGENCE */}
+                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
+                    Threat Intelligence
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Crosshair className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Threat Hunting</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Búsqueda proactiva de amenazas en el entorno</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <AlertTriangle className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Vulnerability Detection</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Aplicaciones afectadas por CVEs conocidos</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                      <GitBranch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">MITRE ATT&CK</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Alertas mapeadas a tácticas y técnicas MITRE</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECURITY OPERATIONS */}
+                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
+                    Security Operations
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Activity className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">IT Hygiene</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Procesos, software y configuraciones del sistema</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <CreditCard className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">PCI DSS</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Cumplimiento del estándar de seguridad de pagos</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                      <Lock className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">GDPR</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Conformidad con protección de datos personales</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CYBERSHIELD MODULES */}
+                <div className="relative border border-[#3fb950] rounded-lg pt-4 pb-3 px-3">
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#3fb950] uppercase tracking-wider whitespace-nowrap">
+                    CyberShield Modules
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Network className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield LAN</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">6 reglas</span>
+                        </div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">MAC Flooding, ARP Spoofing, DHCP · reglas 100500-100505</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Zap className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield Scapy</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">4 reglas</span>
+                        </div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">SYN/ACK/ARP Scan, Fuzzing · reglas 100506-100509</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <Key className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield BruteForce</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">2 reglas</span>
+                        </div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Fuerza bruta SSH y Web · reglas 100510-100511</div>
+                      </div>
+                    </div>
+                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                      <ArrowUpCircle className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield PrivEsc</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">2 reglas</span>
+                        </div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Escalada local y Kerberos · reglas 100512-100513</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* COLUMNA 2: CyberShield Alerts Stream */}
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl xl:col-span-1 flex flex-col min-h-[420px]">
+            <CardHeader className="border-b border-border/20 pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
+                  <ShieldAlert className="w-4 h-4 text-primary" />
+                  Alertas de Seguridad (indexer)
+                </CardTitle>
+                <CardDescription className="text-[9px] text-muted-foreground">
+                  Cola en tiempo real de eventos detectados.
+                </CardDescription>
+              </div>
+              <div className="flex items-center bg-background/60 border border-border rounded-lg p-0.5 scale-90">
+                <button
+                  type="button"
+                  onClick={() => setAlertFilterType("cybershield")}
+                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                    alertFilterType === "cybershield"
+                      ? "bg-primary text-black shadow-md font-extrabold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  CyberShield
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAlertFilterType("wazuh")}
+                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                    alertFilterType === "wazuh"
+                      ? "bg-primary text-black shadow-md font-extrabold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Wazuh
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAlertFilterType("all")}
+                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                    alertFilterType === "all"
+                      ? "bg-primary text-black shadow-md font-extrabold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Ambos
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[320px]">
+              {alertsError ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-8">
+                  <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
+                  <p className="text-[10px] font-bold text-destructive">{alertsError}</p>
+                </div>
+              ) : filteredAlerts.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center py-10">
+                  <Terminal className="w-6 h-6 text-muted-foreground/30 mb-1 animate-pulse" />
+                  <p className="text-[10px] text-muted-foreground">No hay alertas en las últimas 24 horas.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs font-mono">
-                    <thead>
-                      <tr className="text-[10px] text-muted-foreground uppercase border-b border-primary/10 pb-2">
-                        <th className="py-2">ID</th>
-                        <th className="py-2">Nombre</th>
-                        <th className="py-2">Estado</th>
-                        <th className="py-2">IP</th>
-                        <th className="py-2">Keepalive</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-primary/5">
-                      {agents.map((agent) => {
-                        const statusStyle = getAgentStatusStyle(agent.status);
-                        return (
-                          <tr key={agent.id} className="hover:bg-primary/5 transition-colors">
-                            <td className="py-3 font-semibold text-primary/70">{agent.id}</td>
-                            <td className="py-3 font-semibold">{agent.name}</td>
-                            <td className="py-3">
-                              <Badge className={`text-[9px] uppercase tracking-wider font-bold ${statusStyle.badgeClass}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${statusStyle.dotClass}`} />
-                                {statusStyle.label}
+                <div className="space-y-2">
+                  {filteredAlerts.map((alert) => {
+                    const severity = getSeverityFromLevel(alert.rule?.level ?? 3);
+                    return (
+                      <div
+                        key={alert._id}
+                        onClick={() => setSelectedAlert(alert)}
+                        className="group p-2 bg-background/30 border border-border hover:border-primary/30 transition-all rounded cursor-pointer relative overflow-hidden"
+                      >
+                        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-top duration-200" />
+                        <div className="flex justify-between items-start gap-1">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[9px] text-muted-foreground font-mono">{formatTimestamp(alert.timestamp)}</span>
+                              <Badge variant="outline" className="text-[8px] border-primary/20 text-primary/70 font-mono px-1 py-0 pointer-events-none">
+                                Regla: {alert.rule?.id || "N/A"}
                               </Badge>
-                            </td>
-                            <td className="py-3 text-muted-foreground">{agent.ip || "N/A"}</td>
-                            <td className="py-3 text-muted-foreground text-[10px]">
-                              {agent.lastKeepAlive ? formatTimestamp(agent.lastKeepAlive) : "Sin señal"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            </div>
+                            <p className="text-[11px] font-semibold text-foreground truncate group-hover:text-primary transition-colors mt-0.5">
+                              {alert.rule?.description || "Sin descripción"}
+                            </p>
+                          </div>
+                          <Badge className={`text-[8px] font-bold shrink-0 ${severity.badgeClass} px-1.5 py-0 pointer-events-none`}>
+                            Lvl {alert.rule?.level ?? 0}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* ZONA 4 — Correlación de ataques (Crítica) */}
-          <Card className="bg-black/60 border border-primary/10 backdrop-blur-xl animate-fade-slide-up [animation-delay:0.2s]">
-            <CardHeader className="border-b border-primary/5 pb-4 flex flex-row justify-between items-center">
+          {/* COLUMNA 3: Auditorías y Correlación */}
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl flex flex-col min-h-[420px]">
+            <CardHeader className="border-b border-border/20 pb-3 flex flex-row justify-between items-center">
               <div>
-                <CardTitle className="text-sm text-primary text-glow-green flex items-center gap-2 uppercase font-mono">
+                <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
                   <LinkIcon className="w-4 h-4 text-primary" />
-                  Correlación Ofensiva-Defensiva (±5m)
+                  Auditoría de Ataques (SIEM)
                 </CardTitle>
-                <CardDescription className="text-[10px] text-muted-foreground font-mono">
-                  Audita el histórico de ataques y verifica su detección en el SIEM.
+                <CardDescription className="text-[9px] text-muted-foreground">
+                  Audita el histórico de ataques y verifica su detección.
                 </CardDescription>
               </div>
               <Button
                 onClick={handleVerifyAll}
                 disabled={verifyingAll || attacks.length === 0}
-                className="h-7 px-3 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 text-[10px] font-bold font-mono"
+                className="h-6 px-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 text-[9px] font-bold"
               >
-                {verifyingAll ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <Play className="w-3 h-3 mr-1.5" />}
+                {verifyingAll ? <Loader2 className="w-2.5 h-2.5 animate-spin mr-1" /> : <Play className="w-2.5 h-2.5 mr-1" />}
                 AUDITAR TODO
               </Button>
             </CardHeader>
-            <CardContent className="pt-4 h-[350px] overflow-y-auto">
+            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[320px]">
               {attacks.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center">
-                  <p className="text-xs text-muted-foreground font-mono">No hay logs de ataques lanzados para correlacionar.</p>
+                <div className="h-full flex items-center justify-center py-10">
+                  <p className="text-[10px] text-muted-foreground text-center">No hay logs de ataques lanzados para correlacionar.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {attacks.slice(0, 10).map((attack) => {
+                <div className="space-y-2">
+                  {attacks.slice(0, 8).map((attack) => {
                     const status = correlationStates[attack._id] || "idle";
                     const alertsFound = correlationAlerts[attack._id] || [];
 
                     return (
                       <div
                         key={attack._id}
-                        className={`p-3 border rounded-lg transition-all ${
+                        className={`p-2 border rounded transition-all ${
                           status === "detected" 
                             ? "bg-primary/5 border-primary/30" 
                             : status === "not_detected" 
                             ? "bg-warning/5 border-warning/30" 
                             : status === "error" 
                             ? "bg-destructive/5 border-destructive/30"
-                            : "bg-background/20 border-primary/10"
+                            : "bg-background/20 border-border"
                         }`}
                       >
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-foreground">{attack.attack_name || attack.attack_id}</span>
-                              <Badge variant="outline" className="text-[9px] font-mono border-primary/30 text-primary/70 uppercase">
+                        <div className="flex justify-between items-center">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-foreground truncate max-w-[120px]">{attack.attack_name || attack.attack_id}</span>
+                              <Badge variant="outline" className="text-[8px] font-mono border-primary/20 text-primary/70 px-1 py-0 pointer-events-none">
                                 {attack.module}
                               </Badge>
                             </div>
-                            <span className="text-[9px] text-muted-foreground block mt-1">
-                              Ejecutado: {formatTimestamp(attack.timestamp)}
+                            <span className="text-[8px] text-muted-foreground block">
+                              {formatTimestamp(attack.timestamp)}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
+                          <div className="shrink-0">
                             {status === "idle" && (
                               <Button
                                 onClick={() => handleVerifyCorrelation(attack)}
-                                className="h-6 px-2 bg-primary/10 hover:bg-primary/20 text-primary text-[9px] font-bold border border-primary/20"
+                                className="h-5 px-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[8px] font-bold border border-primary/25"
                               >
                                 Verificar
                               </Button>
                             )}
 
                             {status === "loading" && (
-                              <Badge className="bg-primary/10 text-primary border border-primary/30 text-[9px] font-bold animate-pulse">
-                                <Loader2 className="w-2.5 h-2.5 animate-spin mr-1" />
-                                BUSCANDO...
+                              <Badge className="bg-primary/10 text-primary border border-primary/30 text-[8px] font-bold animate-pulse px-1 py-0 pointer-events-none">
+                                Buscando...
                               </Badge>
                             )}
 
                             {status === "detected" && (
-                              <Badge className="bg-primary/20 text-primary border border-primary/60 text-[9px] font-bold glow-green">
-                                <CheckCircle2 className="w-2.5 h-2.5 mr-1 text-primary" />
-                                ✅ DETECTADO ({alertsFound.length})
+                              <Badge className="bg-primary/20 text-primary border border-primary/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
+                                Det. ({alertsFound.length})
                               </Badge>
                             )}
 
                             {status === "not_detected" && (
-                              <Badge className="bg-warning/20 text-warning border border-warning/60 text-[9px] font-bold">
-                                <AlertTriangle className="w-2.5 h-2.5 mr-1 text-warning" />
-                                ⚠️ NO DETECTADO
+                              <Badge className="bg-warning/20 text-warning border border-warning/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
+                                No Det.
                               </Badge>
                             )}
 
                             {status === "error" && (
-                              <Badge className="bg-destructive/20 text-destructive border border-destructive/60 text-[9px] font-bold">
-                                <XCircle className="w-2.5 h-2.5 mr-1 text-destructive" />
-                                ❌ ERROR SIEM
+                              <Badge className="bg-destructive/20 text-destructive border-destructive/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
+                                Error
                               </Badge>
                             )}
                           </div>
                         </div>
 
                         {status === "detected" && alertsFound.length > 0 && (
-                          <div className="mt-2.5 pt-2 border-t border-primary/10 space-y-1.5">
-                            <span className="text-[9px] text-primary/70 uppercase tracking-widest font-bold block">Alertas SIEM Correlacionadas:</span>
-                            {alertsFound.slice(0, 2).map((alert, index) => (
+                          <div className="mt-1.5 pt-1.5 border-t border-primary/10 space-y-1">
+                            {alertsFound.slice(0, 1).map((alert, index) => (
                               <div
                                 key={index}
                                 onClick={() => setSelectedAlert(alert)}
-                                className="text-[10px] bg-black/40 border border-primary/10 hover:border-primary/30 transition-all rounded p-2 flex justify-between items-center cursor-pointer hover:scale-[1.01]"
+                                className="text-[9px] bg-black/40 border border-primary/10 hover:border-primary/20 rounded p-1 flex justify-between items-center cursor-pointer"
                               >
-                                <span className="text-foreground font-medium truncate max-w-[320px]">
-                                  {alert.rule?.description || alert.rule_description}
+                                <span className="text-foreground truncate max-w-[170px]">
+                                  {alert.rule?.description || "Sin descripción"}
                                 </span>
-                                <Badge variant="outline" className="text-[8px] border-primary/25 text-primary scale-90">
-                                  Lvl {alert.rule?.level ?? alert.level}
+                                <Badge variant="outline" className="text-[7px] border-primary/20 text-primary px-1 py-0 scale-90 pointer-events-none">
+                                  Lvl {alert.rule?.level ?? 0}
                                 </Badge>
                               </div>
                             ))}
-                            {alertsFound.length > 2 && (
-                              <span className="text-[9px] text-muted-foreground block text-right">
-                                + {alertsFound.length - 2} alertas más
-                              </span>
-                            )}
                           </div>
                         )}
                       </div>
@@ -431,99 +793,8 @@ export default function Defensive() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* ZONA 3 — Alertas Recientes (Últimas 24h) */}
-        <Card className="bg-black/60 border border-primary/10 backdrop-blur-xl animate-fade-slide-up [animation-delay:0.3s]">
-          <CardHeader className="border-b border-primary/5 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-sm text-primary text-glow-green flex items-center gap-2 uppercase font-mono">
-                <ShieldAlert className="w-4 h-4 text-primary" />
-                Alertas Recientes en Wazuh Indexer (24 Horas)
-              </CardTitle>
-              <CardDescription className="text-[10px] text-muted-foreground font-mono">
-                Cola en tiempo real de eventos detectados. Haz clic en una alerta para desplegar el visor de metadatos.
-              </CardDescription>
-            </div>
-            
-            {/* Filtro Checkbox */}
-            <div className="flex items-center space-x-2 bg-background/40 border border-primary/10 rounded-md px-3 py-1.5 self-start md:self-auto">
-              <Checkbox
-                id="filter-cybershield"
-                checked={onlyCyberShield}
-                onCheckedChange={(checked) => setOnlyCyberShield(!!checked)}
-                className="border-primary/40 data-[state=checked]:bg-primary data-[state=checked]:text-black"
-              />
-              <label
-                htmlFor="filter-cybershield"
-                className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer select-none font-bold uppercase tracking-wider"
-              >
-                Solo alertas de CyberShield (100499 - 100513)
-              </label>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4 h-[420px] overflow-y-auto">
-            {alertsError ? (
-              <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
-                <AlertCircle className="w-8 h-8 text-destructive animate-pulse" />
-                <p className="text-sm font-bold text-destructive font-mono">{alertsError}</p>
-              </div>
-            ) : filteredAlerts.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <Terminal className="w-8 h-8 text-muted-foreground/30 mb-2 animate-pulse" />
-                <p className="text-xs text-muted-foreground font-mono">No hay alertas de CyberShield en las últimas 24 horas.</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {filteredAlerts.map((alert) => {
-                  const severity = getSeverityFromLevel(alert.rule?.level ?? alert.level ?? 3);
-                  return (
-                    <div
-                      key={alert._id || alert.id}
-                      onClick={() => setSelectedAlert(alert)}
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-background/30 border border-primary/10 hover:border-primary/30 transition-all duration-200 rounded-md cursor-pointer hover:scale-[1.005] relative overflow-hidden"
-                    >
-                      {/* Left glowing border on hover */}
-                      <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-top duration-200" />
-                      
-                      <div className="space-y-1 flex-1 pr-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] text-muted-foreground font-mono">
-                            {formatTimestamp(alert.timestamp)}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] border-primary/20 text-primary/70">
-                            Regla: {alert.rule?.id || alert.rule_id}
-                          </Badge>
-                        </div>
-                        <p className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
-                          {alert.rule?.description || alert.rule_description}
-                        </p>
-                        <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                          <span>Agente: {alert.agent?.name || alert.agent_name}</span>
-                          <span>|</span>
-                          <span>MITRE ID: {alert.rule?.mitre?.id?.[0] || alert.mitre_id || "N/A"}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-2 sm:mt-0 flex items-center gap-3 shrink-0">
-                        <Badge className={`text-[10px] font-bold ${severity.badgeClass}`}>
-                          LEVEL {alert.rule?.level ?? alert.level} — {severity.label}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-7 h-7 hover:bg-primary/15 text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        </div>
 
         {/* DETALLE LATERAL VISOR DE ALERTA */}
         {selectedAlert && (
