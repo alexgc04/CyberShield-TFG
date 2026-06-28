@@ -749,39 +749,82 @@ app.get("/api/health", async (req, res) => {
 // WAZUH ALERTS PROXY
 app.get("/api/wazuh/alerts", verifyToken, async (req, res) => {
   try {
+    const filterType = req.query.filterType || 'cybershield';
     const isMock = process.env.WAZUH_MOCK === 'true';
+
     if (isMock) {
+      const mockAlerts = [
+        {
+          id: "mock-alert-1",
+          timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+          rule_id: "100500",
+          rule_description: "ALERTA CYBERSHIELD: Ataque MAC Flooding detectado (MOCK)",
+          agent_name: "kali-agent",
+          mitre_id: "T1557",
+          level: 12,
+          rule: { id: "100500", level: 12, description: "ALERTA CYBERSHIELD: Ataque MAC Flooding detectado (MOCK)", groups: ["cybershield"] }
+        },
+        {
+          id: "mock-alert-2",
+          timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+          rule_id: "100504",
+          rule_description: "ALERTA CYBERSHIELD: Envenenamiento de caché ARP (Man-in-the-Middle) detectado (MOCK)",
+          agent_name: "debian-agent",
+          mitre_id: "T1557",
+          level: 12,
+          rule: { id: "100504", level: 12, description: "ALERTA CYBERSHIELD: Envenenamiento de caché ARP (Man-in-the-Middle) detectado (MOCK)", groups: ["cybershield"] }
+        },
+        {
+          id: "mock-alert-3",
+          timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          rule_id: "100510",
+          rule_description: "ALERTA CYBERSHIELD: Ataque de fuerza bruta SSH detectado (MOCK)",
+          agent_name: "kali-agent",
+          mitre_id: "T1110",
+          level: 12,
+          rule: { id: "100510", level: 12, description: "ALERTA CYBERSHIELD: Ataque de fuerza bruta SSH detectado (MOCK)", groups: ["cybershield"] }
+        },
+        {
+          id: "mock-alert-wazuh-1",
+          timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+          rule_id: "5710",
+          rule_description: "sshd: Attempt to login using a non-existent user (MOCK)",
+          agent_name: "debian-agent",
+          mitre_id: "T1110",
+          level: 5,
+          rule: { id: "5710", level: 5, description: "sshd: Attempt to login using a non-existent user (MOCK)", groups: ["syslog", "sshd", "authentication_failed"] }
+        },
+        {
+          id: "mock-alert-wazuh-2",
+          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+          rule_id: "5715",
+          rule_description: "sshd: Successful login (MOCK)",
+          agent_name: "kali-agent",
+          mitre_id: "T1078",
+          level: 3,
+          rule: { id: "5715", level: 3, description: "sshd: Successful login (MOCK)", groups: ["syslog", "sshd", "authentication_success"] }
+        },
+        {
+          id: "mock-alert-wazuh-3",
+          timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+          rule_id: "504",
+          rule_description: "Ossec agent disconnected (MOCK)",
+          agent_name: "debian-agent",
+          level: 8,
+          rule: { id: "504", level: 8, description: "Ossec agent disconnected (MOCK)", groups: ["ossec"] }
+        }
+      ];
+
+      let filteredMock = mockAlerts;
+      if (filterType === 'cybershield') {
+        filteredMock = mockAlerts.filter(a => a.rule.groups.includes('cybershield'));
+      } else if (filterType === 'wazuh') {
+        filteredMock = mockAlerts.filter(a => !a.rule.groups.includes('cybershield'));
+      }
+
       return res.json({
         success: true,
-        alerts: [
-          {
-            id: "mock-alert-1",
-            timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-            rule_id: "100500",
-            rule_description: "ALERTA CYBERSHIELD: Ataque MAC Flooding detectado (MOCK)",
-            agent_name: "kali-agent",
-            mitre_id: "T1557",
-            level: 12
-          },
-          {
-            id: "mock-alert-2",
-            timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-            rule_id: "100504",
-            rule_description: "ALERTA CYBERSHIELD: Envenenamiento de caché ARP (Man-in-the-Middle) detectado (MOCK)",
-            agent_name: "debian-agent",
-            mitre_id: "T1557",
-            level: 12
-          },
-          {
-            id: "mock-alert-3",
-            timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-            rule_id: "100510",
-            rule_description: "ALERTA CYBERSHIELD: Ataque de fuerza bruta SSH detectado (MOCK)",
-            agent_name: "kali-agent",
-            mitre_id: "T1110",
-            level: 12
-          }
-        ]
+        alerts: filteredMock
       });
     }
 
@@ -790,6 +833,26 @@ app.get("/api/wazuh/alerts", verifyToken, async (req, res) => {
     const wazuhPass = process.env.WAZUH_PASS || 'KuimoKrn5E8V*xZtj8efr3TipwIcH.3U';
     const authHeader = 'Basic ' + Buffer.from(`${wazuhUser}:${wazuhPass}`).toString('base64');
 
+    const must = [];
+    const must_not = [];
+
+    if (filterType === 'cybershield') {
+      must.push({ match: { "rule.groups": "cybershield" } });
+    } else if (filterType === 'wazuh') {
+      must_not.push({ match: { "rule.groups": "cybershield" } });
+    }
+
+    const searchQuery = {
+      bool: {
+        filter: [
+          { range: { "@timestamp": { gte: "now-24h" } } }
+        ]
+      }
+    };
+
+    if (must.length > 0) searchQuery.bool.must = must;
+    if (must_not.length > 0) searchQuery.bool.must_not = must_not;
+
     const searchRes = await fetch(`${indexerUrl}/wazuh-alerts-*/_search`, {
       method: 'POST',
       headers: {
@@ -797,16 +860,7 @@ app.get("/api/wazuh/alerts", verifyToken, async (req, res) => {
         'Authorization': authHeader
       },
       body: JSON.stringify({
-        query: {
-          bool: {
-            must: [
-              { match: { "rule.groups": "cybershield" } }
-            ],
-            filter: [
-              { range: { "@timestamp": { gte: "now-24h" } } }
-            ]
-          }
-        },
+        query: searchQuery,
         sort: [{ "@timestamp": { order: "desc" } }],
         size: 50
       })
@@ -1329,10 +1383,82 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
 
     res.json(data);
 
-  } catch (err) {
-    console.error("Execute Attack Error:", err);
-    res.status(500).json({ success: false, error: "Error en el servidor al enviar el ataque" });
+});
+
+// EXECUTE CUSTOM COMMAND VIA SSH ON KALI
+app.post("/api/ssh/execute", verifyToken, async (req, res) => {
+  const { command } = req.body;
+  if (!command) {
+    return res.status(400).json({ success: false, error: "No se proporcionó ningún comando." });
   }
+
+  const sshHost = process.env.SSH_HOST;
+  const sshUser = process.env.SSH_USER;
+  const sshPass = process.env.SSH_PASS;
+  const sshPort = parseInt(process.env.SSH_PORT) || 22;
+
+  if (!sshHost || !sshUser || !sshPass) {
+    return res.status(500).json({ success: false, error: "Servicio SSH de Kali no configurado en el archivo .env" });
+  }
+
+  const conn = new Client();
+  let timedOut = false;
+
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    try {
+      conn.end();
+    } catch (e) {}
+    res.status(504).json({ success: false, error: "Comando cancelado: excedió el tiempo límite de ejecución (20s)." });
+  }, 20000);
+
+  conn.on("ready", () => {
+    conn.exec(command, (err, stream) => {
+      if (err) {
+        clearTimeout(timeoutTimer);
+        conn.end();
+        if (!timedOut) {
+          return res.status(500).json({ success: false, error: err.message });
+        }
+        return;
+      }
+
+      let stdout = "";
+      let stderr = "";
+
+      stream.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      stream.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      stream.on("close", (code, signal) => {
+        clearTimeout(timeoutTimer);
+        conn.end();
+        if (!timedOut) {
+          res.json({
+            success: true,
+            stdout,
+            stderr,
+            exitCode: code !== null ? code : 0
+          });
+        }
+      });
+    });
+  }).on("error", (err) => {
+    clearTimeout(timeoutTimer);
+    if (!timedOut) {
+      res.status(500).json({ success: false, error: "Error de conexión SSH: " + err.message });
+    }
+  }).connect({
+    host: sshHost,
+    port: sshPort,
+    username: sshUser,
+    password: sshPass,
+    readyTimeout: 10000
+  });
 });
 
 // ── SERVIR FRONTEND EN PRODUCCIÓN ──

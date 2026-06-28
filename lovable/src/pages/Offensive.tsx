@@ -196,47 +196,80 @@ export default function Offensive() {
     const args = cmd.split(/\s+/);
     const mainCommand = args[0].toLowerCase();
 
-    setTimeout(() => {
-      switch (mainCommand) {
-        case "clear":
-        case "cls":
-          setTerminalLines([]);
-          break;
-        case "help":
-          setTerminalLines(prev => [
-            ...prev,
-            { text: "Comandos Disponibles:", type: "info" },
-            { text: "  help          - Muestra esta pantalla de ayuda.", type: "info" },
-            { text: "  clear / cls   - Limpia el output de la terminal.", type: "info" },
-            { text: "  status        - Verifica el estado del nodo atacante SSH y Wazuh.", type: "info" },
-            { text: "  list          - Lista los módulos de ataque cargados en la base de datos.", type: "info" },
-          ]);
-          break;
-        case "status":
-          setTerminalLines(prev => [
-            ...prev,
-            { text: `[+] Hostname: kali-linux-attack-node (${kaliIp})`, type: "info" },
-            { text: "[+] SSH Connect Tunnel: ACTIVE", type: "success" },
-            { text: "[+] Wazuh Rule Trigger Mapping: STABLE", type: "success" },
-            { text: "[+] Database (MongoDB): CONNECTED (Atlas)", type: "success" },
-            { text: "[+] Webhook API Connection: ONLINE", type: "success" },
-          ]);
-          break;
-        case "list":
-          setTerminalLines(prev => {
-            const header = { text: "ID            MODULO      RIESGO      NOMBRE", type: "system" as const };
-            const divider = { text: "-------------------------------------------------------------", type: "system" as const };
-            const listLines = templates.map(t => ({
-              text: `${t.id.padEnd(13)} ${t.module.toUpperCase().padEnd(11)} ${(t.risk_level || 'N/A').padEnd(11)} ${t.name}`,
-              type: "info" as const
-            }));
-            return [...prev, header, divider, ...listLines];
-          });
-          break;
-        default:
-          setTerminalLines(prev => [...prev, { text: `bash: command not found: ${args[0]}. Escribe 'help' para ver los comandos válidos.`, type: "error" }]);
-      }
-    }, 100);
+    if (["clear", "cls"].includes(mainCommand)) {
+      setTerminalLines([]);
+    } else if (mainCommand === "help") {
+      setTerminalLines(prev => [
+        ...prev,
+        { text: "Comandos Locales:", type: "info" },
+        { text: "  help          - Muestra esta pantalla de ayuda.", type: "info" },
+        { text: "  clear / cls   - Limpia el output de la terminal.", type: "info" },
+        { text: "  status        - Verifica el estado del nodo atacante SSH y Wazuh.", type: "info" },
+        { text: "  list          - Lista los módulos de ataque cargados en la base de datos.", type: "info" },
+        { text: "Comandos de Red / Sistema (ejecutados en Kali):", type: "info" },
+        { text: "  Escribe cualquier comando de Linux (ej: whoami, ip a, route, ping -c 2 8.8.8.8, etc.)", type: "system" }
+      ]);
+    } else if (mainCommand === "status") {
+      setTerminalLines(prev => [
+        ...prev,
+        { text: `[+] Hostname: kali-linux-attack-node (${kaliIp})`, type: "info" },
+        { text: "[+] SSH Connect Tunnel: ACTIVE", type: "success" },
+        { text: "[+] Wazuh Rule Trigger Mapping: STABLE", type: "success" },
+        { text: "[+] Database (MongoDB): CONNECTED (Atlas)", type: "success" },
+        { text: "[+] Webhook API Connection: ONLINE", type: "success" },
+      ]);
+    } else if (mainCommand === "list") {
+      setTerminalLines(prev => {
+        const header = { text: "ID            MODULO      RIESGO      NOMBRE", type: "system" as const };
+        const divider = { text: "-------------------------------------------------------------", type: "system" as const };
+        const listLines = templates.map(t => ({
+          text: `${t.id.padEnd(13)} ${t.module.toUpperCase().padEnd(11)} ${(t.risk_level || 'N/A').padEnd(11)} ${t.name}`,
+          type: "info" as const
+        }));
+        return [...prev, header, divider, ...listLines];
+      });
+    } else {
+      // Execute command on Kali over SSH
+      setTerminalLines(prev => [...prev, { text: `[SSH] Ejecutando comando en Kali Linux...`, type: "system" }]);
+      
+      fetch("/api/ssh/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: cmd })
+      })
+        .then((res) => {
+          if (!res.ok) {
+            return res.json().then(errData => { throw new Error(errData.error || `HTTP ${res.status}`); });
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data.success) {
+            setTerminalLines(prev => {
+              const lines = [...prev];
+              if (data.stdout && data.stdout.trim()) {
+                data.stdout.split("\n").forEach((l: string) => {
+                  if (l.trim()) lines.push({ text: l, type: "output" });
+                });
+              }
+              if (data.stderr && data.stderr.trim()) {
+                data.stderr.split("\n").forEach((l: string) => {
+                  if (l.trim()) lines.push({ text: l, type: "error" });
+                });
+              }
+              if (!data.stdout.trim() && !data.stderr.trim()) {
+                lines.push({ text: `(Comando finalizado con exit code: ${data.exitCode})`, type: "system" });
+              }
+              return lines;
+            });
+          } else {
+            setTerminalLines(prev => [...prev, { text: `Error: ${data.error || "Error de ejecución"}`, type: "error" }]);
+          }
+        })
+        .catch((err) => {
+          setTerminalLines(prev => [...prev, { text: `Error SSH: ${err.message}`, type: "error" }]);
+        });
+    }
   };
 
   // Group templates filtering
@@ -347,7 +380,16 @@ export default function Offensive() {
         ) : (
           <div className="flex flex-col gap-6">
             {filteredTemplates.map((t) => (
-              <AttackModule key={t.id} attackId={t.id} kaliIp={kaliIp} template={t} />
+              <AttackModule 
+                key={t.id} 
+                attackId={t.id} 
+                kaliIp={kaliIp} 
+                template={t} 
+                onTerminalLine={(text, type) => {
+                  const timestamp = new Date().toLocaleTimeString();
+                  setTerminalLines((prev) => [...prev, { text, type, timestamp }]);
+                }}
+              />
             ))}
           </div>
         )}

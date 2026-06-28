@@ -35,9 +35,10 @@ interface AttackModuleProps {
   attackId: string;
   kaliIp?: string;
   template?: AttackTemplate;
+  onTerminalLine?: (text: string, type: "info" | "success" | "error" | "command" | "output" | "system") => void;
 }
 
-export default function AttackModule({ attackId, kaliIp, template: propTemplate }: AttackModuleProps) {
+export default function AttackModule({ attackId, kaliIp, template: propTemplate, onTerminalLine }: AttackModuleProps) {
   const [template, setTemplate] = useState<AttackTemplate | null>(propTemplate || null);
   const [params, setParams] = useState<Record<string, string>>(() => {
     if (propTemplate) {
@@ -188,6 +189,12 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate 
     setProgress(5);
     setProgressText(`Conectando al agente Kali Linux (${kaliIp || "10.10.10.21"})...`);
 
+    const fCmd = getRenderedCommand();
+    if (onTerminalLine) {
+      onTerminalLine(`[ATAQUE] Iniciando vector ${template.id} (${template.name})`, "info");
+      onTerminalLine(`[SSH] Enviando comando: ${fCmd}`, "command");
+    }
+
     let currentProgress = 5;
     const progressInterval = setInterval(() => {
       if (currentProgress < 90) {
@@ -229,6 +236,15 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate 
       setProgressText("¡Reporte de vulnerabilidades PDF generado con éxito!");
       setResult(data);
       setStatus("done");
+
+      if (onTerminalLine) {
+        onTerminalLine(`[SSH] Salida de ejecución:`, "system");
+        if (data.ssh_output) {
+          onTerminalLine(data.ssh_output, "output");
+        }
+        onTerminalLine(`[SUCESO] Ataque completado. Reporte generado: ${data.report_id || 'CS-RPT'}`, "success");
+      }
+
       toast({
         title: "Ataque Completado",
         description: `El ataque ha sido lanzado y el informe procesado correctamente.`
@@ -239,6 +255,10 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate 
       setProgressText("");
       setError(err.message || "Error al conectar con el servidor.");
       setStatus("error");
+
+      if (onTerminalLine) {
+        onTerminalLine(`[ERROR] Ejecución fallida: ${err.message || "Error desconocido"}`, "error");
+      }
       toast({
         title: "Error de ejecución",
         description: err.message || "Error al conectar con el servidor.",

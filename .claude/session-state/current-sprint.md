@@ -38,6 +38,7 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 - **Sprint 0: Limpieza y Auth ✅**
 - Configuración de flujo de n8n completada ✅ (Reemplazo dinámico de variables en código JS, query Mongo por attack_name, timeout en la ejecución Kali para evitar loops infinitos de comandos continuos).
 - Rediseño visual de "Wazuh Security Modules" en `Defensive.tsx` completado ✅ (Layout idéntico al Wazuh Overview oficial, etiquetas flotantes superiores y módulo CyberShield resaltado en verde con conteo de reglas).
+- Terminal SSH interactiva real conectada con Kali Linux en `Offensive.tsx` y `server.js` (`POST /api/ssh/execute`) completada ✅ (Permite ejecutar cualquier comando de red/sistema en Kali, y canaliza los outputs y logs de las tarjetas de ataque en tiempo real al buffer de la consola).
 
 ### 🔄 EN CURSO
 - **Fase de Validación de Ataques y Correlación (Sprint 1 & 2)**:
