@@ -34,18 +34,28 @@ interface AttackTemplate {
 interface AttackModuleProps {
   attackId: string;
   kaliIp?: string;
+  template?: AttackTemplate;
 }
 
-export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
-  const [template, setTemplate] = useState<AttackTemplate | null>(null);
-  const [params, setParams] = useState<Record<string, string>>({});
+export default function AttackModule({ attackId, kaliIp, template: propTemplate }: AttackModuleProps) {
+  const [template, setTemplate] = useState<AttackTemplate | null>(propTemplate || null);
+  const [params, setParams] = useState<Record<string, string>>(() => {
+    if (propTemplate) {
+      const initialParams: Record<string, string> = {};
+      propTemplate.parameters.forEach((p: AttackParameter) => {
+        initialParams[p.name] = p.default?.toString() || "";
+      });
+      return initialParams;
+    }
+    return {};
+  });
   const [companyName, setCompanyName] = useState<string>("");
   const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loadingTemplate, setLoadingTemplate] = useState(true);
+  const [loadingTemplate, setLoadingTemplate] = useState(!propTemplate);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
@@ -96,6 +106,17 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
   };
 
   useEffect(() => {
+    if (propTemplate) {
+      setTemplate(propTemplate);
+      const initialParams: Record<string, string> = {};
+      propTemplate.parameters.forEach((p: AttackParameter) => {
+        initialParams[p.name] = params[p.name] !== undefined ? params[p.name] : (p.default?.toString() || "");
+      });
+      setParams(initialParams);
+      setLoadingTemplate(false);
+      return;
+    }
+
     let active = true;
     setLoadingTemplate(true);
     fetch(`/api/attacks/templates/${attackId}`)
@@ -106,7 +127,6 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
       .then((data) => {
         if (active && data.success && data.template) {
           setTemplate(data.template);
-          // Inicializar parámetros con valores por defecto
           const initialParams: Record<string, string> = {};
           data.template.parameters.forEach((p: AttackParameter) => {
             initialParams[p.name] = p.default?.toString() || "";
@@ -123,7 +143,7 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
       });
 
     return () => { active = false; };
-  }, [attackId]);
+  }, [attackId, propTemplate]);
 
   const handleParamChange = (name: string, value: string) => {
     setParams((prev) => ({ ...prev, [name]: value }));
@@ -248,17 +268,17 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
 
   if (loadingTemplate) {
     return (
-      <div className="p-4 border border-[#00ff41]/20 bg-[#0a0a0a] rounded flex items-center justify-center h-48">
-        <Loader2 className="w-6 h-6 animate-spin text-[#00ff41]" />
+      <div className="p-4 border border-border bg-card/40 rounded flex items-center justify-center h-48">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
   if (error && !template) {
     return (
-      <div className="p-4 border border-red-500/30 bg-red-950/10 rounded flex flex-col items-center justify-center h-48 font-mono">
-        <AlertTriangle className="w-8 h-8 text-red-500 mb-2" />
-        <span className="text-red-500 text-xs font-bold text-center">{error}</span>
+      <div className="p-4 border border-destructive/30 bg-destructive/10 rounded flex flex-col items-center justify-center h-48 font-mono">
+        <AlertTriangle className="w-8 h-8 text-destructive mb-2" />
+        <span className="text-destructive text-xs font-bold text-center">{error}</span>
       </div>
     );
   }
@@ -278,23 +298,23 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
       }}
       className="transition-all duration-300 rounded-lg overflow-hidden"
     >
-      <Card className="border-[#00ff41]/20 bg-black/40 glow-green text-[#00ff41] font-mono overflow-hidden">
-      <CardHeader className="border-b border-[#00ff41]/10 pb-3">
+      <Card className="border-border bg-card/40 glow-green text-foreground overflow-hidden font-sans">
+      <CardHeader className="border-b border-border/40 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="border-[#00ff41]/30 text-[#00ff41] text-[10px] font-bold">
+            <Badge variant="outline" className="border-primary/30 text-primary text-[10px] font-bold font-mono">
               {template.id}
             </Badge>
-            <CardTitle className="text-sm font-bold">{template.name}</CardTitle>
+            <CardTitle className="text-sm font-bold text-foreground">{template.name}</CardTitle>
           </div>
           <div className="flex items-center gap-2">
             <Badge className={`text-[8px] uppercase font-bold border ${getRiskColor(template.risk_level)}`}>
               RIESGO: {template.risk_level || "MEDIUM"}
             </Badge>
-            <Badge variant="outline" className="border-[#00ff41]/30 text-[#00ff41] text-[9px] uppercase font-semibold">
+            <Badge variant="outline" className="border-primary/20 text-primary text-[9px] uppercase font-semibold font-mono">
               {template.mitre_id}
             </Badge>
-            <Badge variant="outline" className="border-[#00ff41]/30 text-[#00ff41] text-[9px]">
+            <Badge variant="outline" className="border-primary/20 text-primary text-[9px] font-mono">
               WAZUH: {template.wazuh_rule_id}
             </Badge>
           </div>
@@ -302,14 +322,14 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
         {/* Descripción del ataque */}
-        <p className="text-xs text-[#00ff41]/85 leading-normal">{template.description}</p>
+        <p className="text-xs text-muted-foreground leading-normal">{template.description}</p>
 
         {/* inputs y configurador */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
             {/* Input Nombre Empresa */}
             <div className="space-y-1">
-              <Label className="text-[10px] text-[#00ff41]/70 font-mono uppercase tracking-wider flex items-center gap-1">
+              <Label className="text-[9px] text-muted-foreground uppercase tracking-wider flex items-center gap-1 font-bold">
                 <span>🏢</span> Organización Auditada <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -317,14 +337,14 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Ej: Banco_UCLM"
                 disabled={status === "running"}
-                className="font-mono text-xs bg-black/60 border-[#00ff41]/20 focus:border-[#00ff41]/80 focus:ring-1 focus:ring-[#00ff41] h-8 text-[#00ff41] placeholder:text-[#00ff41]/30"
+                className="font-mono text-xs bg-background/50 border-border focus:border-primary h-8 text-foreground placeholder:text-muted-foreground/30"
               />
             </div>
 
             {/* Inputs de plantilla */}
             {template.parameters.map((p) => (
               <div key={p.name} className="space-y-1">
-                <Label className="text-[10px] text-[#00ff41]/70 font-mono uppercase tracking-wider flex items-center gap-1">
+                <Label className="text-[9px] text-muted-foreground uppercase tracking-wider flex items-center gap-1 font-bold">
                   <span>⚙️</span> {p.label} {p.required && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
@@ -333,10 +353,10 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
                   onChange={(e) => handleParamChange(p.name, e.target.value)}
                   placeholder={p.placeholder}
                   disabled={status === "running"}
-                  className="font-mono text-xs bg-black/60 border-[#00ff41]/20 focus:border-[#00ff41]/80 focus:ring-1 focus:ring-[#00ff41] h-8 text-[#00ff41] placeholder:text-[#00ff41]/30"
+                  className="font-mono text-xs bg-background/50 border-border focus:border-primary h-8 text-foreground placeholder:text-muted-foreground/30"
                 />
                 {p.hint && (
-                  <p className="text-[9px] text-[#00ff41]/50 font-mono leading-none italic">{p.hint}</p>
+                  <p className="text-[9px] text-muted-foreground/50 leading-none italic">{p.hint}</p>
                 )}
               </div>
             ))}
@@ -345,22 +365,22 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
           {/* Vista previa del comando final y progreso */}
           <div className="space-y-3 flex flex-col justify-between">
             <div className="space-y-1.5">
-              <Label className="text-[10px] text-[#00ff41]/70 font-mono uppercase tracking-wider flex items-center gap-1">
+              <Label className="text-[9px] text-muted-foreground uppercase tracking-wider flex items-center gap-1 font-bold">
                 <span>💻</span> Comando en Kali Linux (Vista Previa)
               </Label>
-              <div className="p-2.5 bg-black/80 border border-[#00ff41]/25 rounded text-[11px] text-[#00ff41] leading-relaxed break-all select-all font-mono min-h-24">
+              <div className="p-2.5 bg-background/80 border border-border rounded text-[11px] text-primary leading-relaxed break-all select-all font-mono min-h-24">
                 {getRenderedCommand()}
               </div>
             </div>
 
             {/* Progreso de la ejecución */}
             {status === "running" && progress > 0 && (
-              <div className="space-y-1.5 p-2 bg-black/70 border border-[#00ff41]/10 rounded">
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="animate-pulse">➔ {progressText}</span>
-                  <span>{progress}%</span>
+              <div className="space-y-1.5 p-2 bg-background/50 border border-border rounded">
+                <div className="flex justify-between items-center text-[10px] font-bold text-foreground">
+                  <span className="animate-pulse font-sans">➔ {progressText}</span>
+                  <span className="font-mono">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-1 bg-[#00ff41]/15" />
+                <Progress value={progress} className="h-1 bg-primary/10" />
               </div>
             )}
 
@@ -368,7 +388,7 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
             <Button
               onClick={handleLaunch}
               disabled={status === "running" || !isFormValid()}
-              className="w-full font-mono text-xs bg-[#00ff41] text-black hover:bg-[#00ff41]/80 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_15px_rgba(0,255,65,0.4)] h-9"
+              className="w-full font-sans text-xs bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed h-9 font-bold tracking-wider"
             >
               {status === "running" ? (
                 <span className="flex items-center gap-1.5">
@@ -387,10 +407,10 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
 
         {/* Resultados del ataque */}
         {status === "done" && result && (
-          <div className="mt-3 space-y-3 border-t border-[#00ff41]/10 pt-3">
+          <div className="mt-3 space-y-3 border-t border-border pt-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-1.5 text-xs text-[#00ff41] font-bold">
-                <CheckCircle className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-xs text-primary font-bold">
+                <CheckCircle className="w-4 h-4 text-primary" />
                 <span>EJECUCIÓN FINALIZADA CORRECTAMENTE (EXIT CODE: {result.ssh_exit_code !== undefined ? result.ssh_exit_code : 0})</span>
               </div>
               {result.pdf_url && (
@@ -398,7 +418,7 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
                   href={result.pdf_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#00ff41]/10 border border-[#00ff41]/30 hover:border-[#00ff41] rounded text-[11px] text-[#00ff41] font-bold transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/30 hover:border-primary rounded text-[11px] text-primary font-bold transition-colors font-mono"
                 >
                   <Download className="w-3.5 h-3.5" />
                   INFORME PDF (CS-RPT)
@@ -408,8 +428,8 @@ export default function AttackModule({ attackId, kaliIp }: AttackModuleProps) {
 
             {/* Consola de salida de SSH */}
             <div className="space-y-1">
-              <span className="text-[10px] text-[#00ff41]/70 uppercase tracking-widest">Salida Estándar SSH (Logs)</span>
-              <div className="p-2.5 bg-black border border-[#00ff41]/15 rounded text-[10px] font-mono text-[#00ff41]/90 overflow-x-auto leading-relaxed max-h-48 whitespace-pre">
+              <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">Salida Estándar SSH (Logs)</span>
+              <div className="p-2.5 bg-background border border-border rounded text-[10px] font-mono text-muted-foreground overflow-x-auto leading-relaxed max-h-48 whitespace-pre">
                 {result.ssh_output || "(Sin salida estándar)"}
               </div>
             </div>

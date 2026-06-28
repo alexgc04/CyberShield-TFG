@@ -123,14 +123,29 @@ export default function Offensive() {
   ]);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch templates
     fetch("/api/attacks/templates")
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) {
-          setTemplates(data.templates);
+        if (data.success && data.templates) {
+          const sorted = [...data.templates].sort((a, b) => {
+            const getCatOrder = (id: string) => {
+              const lid = id.toLowerCase();
+              if (lid.startsWith("lan-")) return 1;
+              if (lid.startsWith("scapy-")) return 2;
+              if (lid.startsWith("bf-")) return 3;
+              if (lid.startsWith("lin-") || lid.startsWith("priv-")) return 4;
+              return 5;
+            };
+            const catA = getCatOrder(a.id);
+            const catB = getCatOrder(b.id);
+            if (catA !== catB) return catA - catB;
+            return a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+          });
+          setTemplates(sorted);
         }
       })
       .catch((err) => console.error("Error fetching templates:", err));
@@ -164,8 +179,8 @@ export default function Offensive() {
 
   // Scroll to bottom on new terminal lines
   useEffect(() => {
-    if (terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
     }
   }, [terminalLines]);
 
@@ -209,8 +224,8 @@ export default function Offensive() {
           break;
         case "list":
           setTerminalLines(prev => {
-            const header = { text: "ID            MODULO      RIESGO      NOMBRE", type: "system" };
-            const divider = { text: "-------------------------------------------------------------", type: "system" };
+            const header = { text: "ID            MODULO      RIESGO      NOMBRE", type: "system" as const };
+            const divider = { text: "-------------------------------------------------------------", type: "system" as const };
             const listLines = templates.map(t => ({
               text: `${t.id.padEnd(13)} ${t.module.toUpperCase().padEnd(11)} ${(t.risk_level || 'N/A').padEnd(11)} ${t.name}`,
               type: "info" as const
@@ -332,7 +347,7 @@ export default function Offensive() {
         ) : (
           <div className="flex flex-col gap-6">
             {filteredTemplates.map((t) => (
-              <AttackModule key={t.id} attackId={t.id} kaliIp={kaliIp} />
+              <AttackModule key={t.id} attackId={t.id} kaliIp={kaliIp} template={t} />
             ))}
           </div>
         )}
@@ -357,7 +372,7 @@ export default function Offensive() {
             <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setTerminalLines([
-                  { text: "Virtual Terminal v2.4.1 initialized. Connected to Kali.", type: "info" }
+                  { text: "Virtual Terminal v1.0.0-TFG initialized. Connected to Kali.", type: "info" }
                 ])}
                 title="Limpiar Consola"
                 className="p-1 rounded hover:bg-muted/10 text-muted-foreground hover:text-foreground transition-colors"
@@ -392,7 +407,7 @@ export default function Offensive() {
           </div>
 
           {/* Área de Visualización del Terminal */}
-          <div className="flex-1 p-3 overflow-y-auto font-mono text-[11px] space-y-0.5 bg-black text-foreground">
+          <div ref={terminalContainerRef} className="flex-1 p-3 overflow-y-auto font-mono text-[11px] space-y-0.5 bg-black text-foreground">
             {terminalLines.map((line, idx) => (
               <TypewriterTerminalLine key={idx} line={line} isLast={idx === terminalLines.length - 1} />
             ))}
