@@ -1107,8 +1107,25 @@ app.post("/api/wazuh/correlation", verifyToken, async (req, res) => {
 
 // REPORTS GENERATE
 app.post("/api/reports/generate", (req, res) => {
-  const data = req.body;
-  const reportId = data.report_id || 'CS-RPT-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+  let data = req.body;
+  if (typeof data === "string") {
+    try {
+      data = JSON.parse(data);
+    } catch (e) {}
+  }
+  const bodyData = data.body || data.data || data || {};
+
+  const nombre    = bodyData.attack_name   || bodyData.id       || 'Ataque desconocido';
+  const empresa   = bodyData.company_name  || 'No especificada';
+  const mitre     = bodyData.mitre_id      || 'N/D';
+  const riesgo    = (bodyData.risk_level   || 'MEDIUM').toUpperCase();
+  const desc      = bodyData.description   || '';
+  const comando   = bodyData.command_executed || '(no disponible)';
+  const salida    = bodyData.ssh_output    || '(sin salida de consola)';
+  const exitCode  = bodyData.ssh_exit_code !== undefined ? bodyData.ssh_exit_code : '-';
+  const wazuhRule = bodyData.wazuh_rule_id || 'N/D';
+  const reportId  = bodyData.report_id     || 'CS-RPT-' + Date.now();
+  const fecha     = new Date().toLocaleString('es-ES');
 
   const reportsDir = path.join(__dirname, "reports");
   if (!fs.existsSync(reportsDir)) {
@@ -1133,113 +1150,160 @@ app.post("/api/reports/generate", (req, res) => {
     });
   });
 
-  // Estilo Premium CyberShield
-  // Banner de cabecera oscuro
-  PDFDoc.rect(30, 30, 550, 50).fill('#070708');
-  PDFDoc.fillColor('#00ff41').fontSize(14).font('Helvetica-Bold').text('🛡️ CYBERSHIELD ASV — INFORME DE SEGURIDAD', 45, 48);
+  const VERDE_NEON  = '#00ff41';
+  const BLANCO      = '#e0e0e0';
+  const NEGRO       = '#0a0a0a';
+  const ROJO        = '#ff4444';
+  const NARANJA     = '#ff8800';
+  const AMARILLO    = '#ffcc00';
+  const VERDE_CLARO = '#00cc33';
+  const GRIS        = '#888888';
 
-  // Tabla de Metadatos
-  let currentY = 100;
-  PDFDoc.fillColor('#334155').fontSize(10).font('Helvetica-Bold').text('ORGANIZACIÓN:', 40, currentY);
-  PDFDoc.fillColor('#ffffff').font('Helvetica').text(data.company_name || 'N/A', 150, currentY);
-
-  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('ATAQUE SIMULADO:', 40, currentY + 18);
-  PDFDoc.fillColor('#ffffff').font('Helvetica').text(`${data.attack_name || 'N/A'} (${data.attack_id || 'N/A'})`, 150, currentY + 18);
-
-  // Extraer IP objetivo
-  let targetIp = 'N/A';
-  if (data.parameters) {
-    targetIp = data.parameters.target_ip || data.parameters.target || data.parameters.ip || data.parameters.host || data.parameters.dc_ip || data.parameters.target_subnet || 'N/A';
-  } else if (data.target) {
-    targetIp = data.target;
-  }
-  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('IP OBJETIVO (HOST):', 40, currentY + 36);
-  PDFDoc.fillColor('#00ff41').font('Helvetica-Bold').text(targetIp, 150, currentY + 36);
-
-  // Columna Derecha de Metadatos
-  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('FECHA/HORA:', 340, currentY);
-  PDFDoc.fillColor('#ffffff').font('Helvetica').text(new Date().toLocaleString('es-ES'), 430, currentY);
-
-  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('TÉCNICA MITRE:', 340, currentY + 18);
-  PDFDoc.fillColor('#ffffff').font('Helvetica').text(data.mitre_id || 'N/A', 430, currentY + 18);
-
-  PDFDoc.fillColor('#334155').font('Helvetica-Bold').text('RIESGO EVALUADO:', 340, currentY + 36);
-  let riskColor = '#3b82f6';
-  const risk = (data.risk_level || 'LOW').toUpperCase();
-  if (risk === 'CRITICAL') riskColor = '#ef4444';
-  else if (risk === 'HIGH') riskColor = '#f97316';
-  else if (risk === 'MEDIUM') riskColor = '#eab308';
-  PDFDoc.fillColor(riskColor).font('Helvetica-Bold').text(risk, 460, currentY + 36);
-
-  // Línea divisoria
-  PDFDoc.moveTo(30, 160).lineTo(580, 160).stroke('#1e293b');
-
-  // Resumen Ejecutivo
-  currentY = 175;
-  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
-  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('RESUMEN EJECUTIVO', 42, currentY + 2);
-  
-  PDFDoc.fillColor('#94a3b8').fontSize(9).font('Helvetica').text(
-    `Se ha llevado a cabo una simulación de intrusión ofensiva controlada sobre el host ${targetIp} bajo la infraestructura autorizada de ${data.company_name || 'la organización'}. El vector de ataque evaluó las vulnerabilidades locales de la red o del sistema y comprobó la capacidad de detección del agente Wazuh local.`,
-    40, currentY + 22, { width: 530, align: 'justify' }
-  );
-
-  // Detalles Técnicos (Comando)
-  currentY = 245;
-  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
-  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('DETALLES DE INTRUSIÓN (EJECUCIÓN SSH)', 42, currentY + 2);
-  
-  PDFDoc.fillColor('#334155').fontSize(9).font('Helvetica-Bold').text('Comando Lanzado:', 40, currentY + 22);
-  PDFDoc.rect(40, currentY + 35, 530, 25).fill('#0f172a');
-  PDFDoc.fillColor('#00ff41').fontSize(8).font('Courier-Bold').text(data.command_executed || '(Ejecución directa/API)', 48, currentY + 43);
-
-  // Recomendaciones según tipo de ataque
-  currentY = 320;
-  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
-  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('RECOMENDACIONES DE MITIGACIÓN', 42, currentY + 2);
-
-  let recs = "Mantener el sistema de detección y el firewall local activos.";
-  const aid = (data.attack_id || '').toUpperCase();
-  if (aid.startsWith("LAN-")) {
-    recs = "1. Implementar Port Security en los switches para limitar las direcciones MAC registradas.\n" +
-           "2. Habilitar Dynamic ARP Inspection (DAI) y DHCP Snooping para contrarrestar ataques MitM.\n" +
-           "3. Forzar el uso exclusivo de protocolos de comunicación cifrados (HTTPS/SSH/TLS) en la red local.";
-  } else if (aid.startsWith("SCAPY-")) {
-    recs = "1. Bloquear y auditar escaneos de red anómalos mediante reglas de iptables/firewalld.\n" +
-           "2. Implementar Rate Limiting para conexiones entrantes y mitigar ataques de inundación (Flooding).\n" +
-           "3. Mantener desactivados los puertos no críticos y deshabilitar respuestas ICMP innecesarias.";
-  } else if (aid.startsWith("BF-")) {
-    recs = "1. Configurar bloqueos automáticos temporales de IP mediante herramientas como Fail2ban.\n" +
-           "2. Deshabilitar la autenticación de SSH basada en contraseña y forzar el uso de llaves criptográficas.\n" +
-           "3. Establecer directivas de contraseñas robustas con una longitud mínima de 12 caracteres y caracteres especiales.";
-  } else if (aid.startsWith("LIN-") || aid.startsWith("PRIV-")) {
-    recs = "1. Auditar periódicamente binarios con bits SUID/SGID y revocar permisos innecesarios.\n" +
-           "2. Restringir permisos de escritura sobre tareas programadas del sistema (cron) y scripts compartidos.\n" +
-           "3. Configurar Directivas de Grupo (GPOs) seguras en Active Directory para mitigar delegación de Kerberos.";
-  }
-
-  PDFDoc.fillColor('#e2e8f0').fontSize(9).font('Helvetica').text(recs, 40, currentY + 22, { lineGap: 4 });
-
-  // Consola de Salida SSH
-  currentY = 415;
-  PDFDoc.rect(30, currentY, 4, 15).fill('#00ff41');
-  PDFDoc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('OUTPUT DE CONSOLA KALI LINUX', 42, currentY + 2);
-
-  PDFDoc.rect(40, currentY + 22, 530, 240).fill('#070708');
-  
-  let rawOutput = data.ssh_output || '(Sin salida estándar)';
-  if (rawOutput.length > 800) {
-    rawOutput = rawOutput.slice(0, 800) + "\n\n[... TRUNCATED DUE TO SIZE LIMITS ...]";
-  }
-  
-  PDFDoc.fillColor('#00ff41').fontSize(7.5).font('Courier').text(rawOutput, 45, currentY + 28, {
-    width: 520,
-    height: 228,
-    ellipsis: true
+  // Event listener to fill new pages automatically with dark background
+  PDFDoc.on('pageAdded', () => {
+    PDFDoc.rect(0, 0, PDFDoc.page.width, PDFDoc.page.height).fill(NEGRO);
   });
 
-  // Pie de Página
-  PDFDoc.fillColor('#475569').fontSize(8).font('Helvetica-Oblique').text('CyberShield ASV Platform — Escuela Superior de Informática, UCLM 2025/26', 40, 755, { align: 'center' });
+  // Fill first page
+  PDFDoc.rect(0, 0, PDFDoc.page.width, PDFDoc.page.height).fill(NEGRO);
+
+  // CABECERA (Fondo oscuro destacado en la cabecera)
+  PDFDoc.rect(30, 30, 535, 60).fill('#111111');
+  PDFDoc.fillColor(VERDE_NEON).fontSize(14).font('Helvetica-Bold').text('CYBERSHIELD ASV -- INFORME DE AUDITORIA DE SEGURIDAD', 45, 45);
+  PDFDoc.fillColor(BLANCO).fontSize(9).font('Helvetica').text(`Ref: ${reportId}  |  Fecha: ${fecha}  |  Empresa: ${empresa}`, 45, 68);
+
+  // Reset text cursor below header
+  PDFDoc.text('', 40, 110);
+
+  // SEMAFORO DE RIESGO
+  let semaforoTexto = "";
+  let semaforoColor = BLANCO;
+  if (riesgo === 'CRITICAL') {
+    semaforoTexto = "RIESGO CRITICO -- Vulnerabilidad explotada con exito";
+    semaforoColor = ROJO;
+  } else if (riesgo === 'HIGH') {
+    semaforoTexto = "RIESGO ALTO -- Vulnerabilidad grave detectada";
+    semaforoColor = NARANJA;
+  } else if (riesgo === 'MEDIUM') {
+    semaforoTexto = "RIESGO MEDIO -- Exposicion parcial confirmada";
+    semaforoColor = AMARILLO;
+  } else {
+    semaforoTexto = "RIESGO BAJO -- Mejora de seguridad recomendada";
+    semaforoColor = VERDE_CLARO;
+  }
+  PDFDoc.fillColor(semaforoColor).fontSize(15).font('Helvetica-Bold').text(semaforoTexto);
+  PDFDoc.moveDown(0.5);
+
+  // RESUMEN EJECUTIVO
+  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('QUE HEMOS ENCONTRADO');
+  PDFDoc.moveDown(0.2);
+  
+  let resumenExec = `Durante esta auditoria, se ejecuto el ataque '${nombre}' contra la infraestructura de ${empresa}. ${desc} El ataque fue catalogado con la tecnica ${mitre} del framework MITRE ATT&CK y detecto por la regla Wazuh ${wazuhRule}.`;
+  if (exitCode === 0 || exitCode === '0' || exitCode === 0) {
+    resumenExec += "\n\n[CONFIRMADO] El ataque se ejecuto sin errores. Su sistema es vulnerable a este vector de ataque.";
+  } else {
+    resumenExec += "\n\n[PARCIAL] El ataque encontro resistencia. Revisar la salida de consola para detalles.";
+  }
+  PDFDoc.fillColor(BLANCO).fontSize(10).font('Helvetica').text(resumenExec, { align: 'justify' });
+  PDFDoc.moveDown(0.5);
+
+  // FICHA TECNICA
+  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('DATOS TECNICOS');
+  PDFDoc.moveDown(0.2);
+  
+  const datosTecnicos = [
+    `Ataque:        ${nombre}`,
+    `MITRE ATT&CK:  ${mitre}`,
+    `Regla Wazuh:   ${wazuhRule}`,
+    `Nivel riesgo:  ${riesgo}`,
+    `Empresa:       ${empresa}`,
+    `Fecha:         ${fecha}`
+  ];
+  datosTecnicos.forEach(line => {
+    PDFDoc.fillColor(BLANCO).fontSize(9).font('Helvetica').text(line);
+  });
+  PDFDoc.moveDown(0.5);
+
+  // COMANDO EJECUTADO
+  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('PRUEBA DE CONCEPTO -- COMANDO LANZADO');
+  PDFDoc.moveDown(0.2);
+  
+  let cmdY = PDFDoc.y;
+  PDFDoc.rect(35, cmdY, 525, 25).fill('#111111');
+  PDFDoc.fillColor(VERDE_NEON).fontSize(8).font('Courier-Bold').text(comando, 42, cmdY + 8);
+  PDFDoc.text('', 40, cmdY + 35);
+  PDFDoc.moveDown(0.5);
+
+  // OUTPUT CONSOLA
+  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('SALIDA DE CONSOLA (KALI LINUX)');
+  PDFDoc.moveDown(0.2);
+  
+  let consoleY = PDFDoc.y;
+  const salidaTruncada = salida.split('\n').slice(0, 25).join('\n');
+  PDFDoc.rect(35, consoleY, 525, 140).fill('#111111');
+  PDFDoc.fillColor(VERDE_NEON).fontSize(7.5).font('Courier').text(salidaTruncada, 42, consoleY + 8, {
+    width: 510,
+    height: 124,
+    ellipsis: true
+  });
+  PDFDoc.text('', 40, consoleY + 150);
+  PDFDoc.moveDown(0.5);
+
+  // RECOMENDACIONES
+  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('MEDIDAS CORRECTIVAS RECOMENDADAS');
+  PDFDoc.moveDown(0.2);
+
+  let recsList = [];
+  if (riesgo === 'CRITICAL') {
+    recsList = [
+      "1. URGENTE: Aislar el segmento de red afectado en menos de 24 horas",
+      "2. Activar monitorizacion 24/7 y escalar al CISO inmediatamente",
+      "3. Revisar todos los logs del SIEM de los ultimos 7 dias",
+      "4. Contratar auditoria forense externa para evaluar el alcance real",
+      "5. Notificar a direccion y valorar notificacion a la AEPD si hay datos personales expuestos"
+    ];
+  } else if (riesgo === 'HIGH') {
+    recsList = [
+      "1. Aplicar parche o configuracion correctiva en menos de 72 horas",
+      "2. Revisar logs del SIEM de los ultimos 30 dias en busca de actividad similar",
+      "3. Segmentar la red para limitar el movimiento lateral del atacante",
+      "4. Formar al equipo tecnico sobre este vector de ataque especifico"
+    ];
+  } else if (riesgo === 'MEDIUM') {
+    recsList = [
+      "1. Planificar remediacion en el proximo sprint de seguridad (max 2 semanas)",
+      "2. Documentar el hallazgo en el registro de riesgos corporativo",
+      "3. Revisar la configuracion del firewall y las politicas de acceso"
+    ];
+  } else {
+    recsList = [
+      "1. Registrar como mejora tecnica y revisar en la proxima auditoria trimestral",
+      "2. Informar al equipo de IT para valorar la implementacion de controles adicionales"
+    ];
+  }
+
+  recsList.forEach(rec => {
+    let recColor = BLANCO;
+    if (riesgo === 'CRITICAL') recColor = ROJO;
+    else if (riesgo === 'HIGH') recColor = NARANJA;
+    else if (riesgo === 'MEDIUM') recColor = AMARILLO;
+    else recColor = VERDE_CLARO;
+    
+    PDFDoc.fillColor(recColor).fontSize(9).font('Helvetica').text(rec);
+  });
+  PDFDoc.moveDown(1.0);
+
+  // PIE DE PAGINA
+  let footerY = Math.max(PDFDoc.y, 700);
+  if (footerY > 730) {
+    PDFDoc.addPage();
+    footerY = 700;
+  }
+  
+  PDFDoc.moveTo(35, footerY).lineTo(560, footerY).strokeColor(VERDE_NEON).stroke();
+  PDFDoc.fillColor(GRIS).fontSize(7.5).font('Helvetica').text('Generado automaticamente por CyberShield ASV -- UCLM 2025/26', 35, footerY + 8);
+  PDFDoc.text('Documento CONFIDENCIAL. No distribuir sin autorizacion escrita.', 35, footerY + 18);
+  PDFDoc.text(`ID: ${reportId}`, 35, footerY + 28);
 
   PDFDoc.end();
 });
