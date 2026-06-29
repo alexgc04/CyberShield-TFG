@@ -1382,7 +1382,10 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
     }
 
     res.json(data);
-
+  } catch (err) {
+    console.error("Execute Attack Error:", err);
+    res.status(500).json({ success: false, error: "Error en el servidor al enviar el ataque" });
+  }
 });
 
 // EXECUTE CUSTOM COMMAND VIA SSH ON KALI
