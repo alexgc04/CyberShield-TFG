@@ -14,6 +14,8 @@ node_modules/
 certs/
 
 # Informes generados (se gestionan desde la web)
+reports/
+reports/*.pdf
 docs/reports/*.md
 docs/reports/*.pdf
 docs/reports/.md-to-pdf-config.json
@@ -26,6 +28,8 @@ lovable/dist/
 *.log
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
 
 # IDE
 .vscode/

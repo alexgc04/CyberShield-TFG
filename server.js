@@ -1107,205 +1107,62 @@ app.post("/api/wazuh/correlation", verifyToken, async (req, res) => {
 
 // REPORTS GENERATE
 app.post("/api/reports/generate", (req, res) => {
-  let data = req.body;
-  if (typeof data === "string") {
+  const { spawn } = require("child_process");
+
+  // Serializar el body de la petición para enviarlo por stdin a Python
+  const payload = JSON.stringify(req.body);
+
+  // Ejecutar el script generador en Python pasándole el payload
+  const pythonProcess = spawn("python", ["generate_report.py"]);
+
+  let stdoutData = "";
+  let stderrData = "";
+
+  pythonProcess.stdout.on("data", (chunk) => {
+    stdoutData += chunk.toString();
+  });
+
+  pythonProcess.stderr.on("data", (chunk) => {
+    stderrData += chunk.toString();
+  });
+
+  pythonProcess.on("close", (code) => {
+    if (code !== 0) {
+      console.error(`generate_report.py finalizó con código ${code}. Stderr: ${stderrData}`);
+      return res.status(500).json({
+        success: false,
+        error: `Error al generar el reporte en Python (exit code ${code})`,
+        details: stderrData
+      });
+    }
+
     try {
-      data = JSON.parse(data);
-    } catch (e) {}
-  }
-  const bodyData = data.body || data.data || data || {};
-
-  const nombre    = bodyData.attack_name   || bodyData.id       || 'Ataque desconocido';
-  const empresa   = bodyData.company_name  || 'No especificada';
-  const mitre     = bodyData.mitre_id      || 'N/D';
-  const riesgo    = (bodyData.risk_level   || 'MEDIUM').toUpperCase();
-  const desc      = bodyData.description   || '';
-  const comando   = bodyData.command_executed || '(no disponible)';
-  const salida    = bodyData.ssh_output    || '(sin salida de consola)';
-  const exitCode  = bodyData.ssh_exit_code !== undefined ? bodyData.ssh_exit_code : '-';
-  const wazuhRule = bodyData.wazuh_rule_id || 'N/D';
-  const reportId  = bodyData.report_id     || 'CS-RPT-' + Date.now();
-  const fecha     = new Date().toLocaleString('es-ES');
-
-  const reportsDir = path.join(__dirname, "reports");
-  if (!fs.existsSync(reportsDir)) {
-    fs.mkdirSync(reportsDir, { recursive: true });
-  }
-  const reportPath = path.join(reportsDir, `${reportId}.pdf`);
-  const writeStream = fs.createWriteStream(reportPath);
-
-  const PDFDoc = new PDFDocument({ margin: 40 });
-  PDFDoc.pipe(writeStream);
-
-  const chunks = [];
-  PDFDoc.on('data', c => chunks.push(c));
-
-  writeStream.on('finish', () => {
-    const pdfBuffer = Buffer.concat(chunks);
-    res.json({
-      success: true,
-      report_id: reportId,
-      pdf_url: `/api/reports/${reportId}.pdf`,
-      size: pdfBuffer.length
-    });
+      const responseObj = JSON.parse(stdoutData.trim());
+      if (responseObj.success) {
+        return res.json({
+          success: true,
+          report_id: responseObj.report_id,
+          pdf_url: `/api/reports/${responseObj.report_id}.pdf`
+        });
+      } else {
+        return res.status(500).json({
+          success: false,
+          error: responseObj.error || "Fallo desconocido en el script de Python"
+        });
+      }
+    } catch (parseErr) {
+      console.error("Error al decodificar la salida del generador de Python:", stdoutData, parseErr);
+      return res.status(500).json({
+        success: false,
+        error: "Error interno al procesar los datos de respuesta del generador de PDF",
+        details: stdoutData
+      });
+    }
   });
 
-  const VERDE_NEON  = '#00ff41';
-  const BLANCO      = '#e0e0e0';
-  const NEGRO       = '#0a0a0a';
-  const ROJO        = '#ff4444';
-  const NARANJA     = '#ff8800';
-  const AMARILLO    = '#ffcc00';
-  const VERDE_CLARO = '#00cc33';
-  const GRIS        = '#888888';
-
-  // Event listener to fill new pages automatically with dark background
-  PDFDoc.on('pageAdded', () => {
-    PDFDoc.rect(0, 0, PDFDoc.page.width, PDFDoc.page.height).fill(NEGRO);
-  });
-
-  // Fill first page
-  PDFDoc.rect(0, 0, PDFDoc.page.width, PDFDoc.page.height).fill(NEGRO);
-
-  // CABECERA (Fondo oscuro destacado en la cabecera)
-  PDFDoc.rect(30, 30, 535, 60).fill('#111111');
-  PDFDoc.fillColor(VERDE_NEON).fontSize(14).font('Helvetica-Bold').text('CYBERSHIELD ASV -- INFORME DE AUDITORIA DE SEGURIDAD', 45, 45);
-  PDFDoc.fillColor(BLANCO).fontSize(9).font('Helvetica').text(`Ref: ${reportId}  |  Fecha: ${fecha}  |  Empresa: ${empresa}`, 45, 68);
-
-  // Reset text cursor below header
-  PDFDoc.text('', 40, 110);
-
-  // SEMAFORO DE RIESGO
-  let semaforoTexto = "";
-  let semaforoColor = BLANCO;
-  if (riesgo === 'CRITICAL') {
-    semaforoTexto = "RIESGO CRITICO -- Vulnerabilidad explotada con exito";
-    semaforoColor = ROJO;
-  } else if (riesgo === 'HIGH') {
-    semaforoTexto = "RIESGO ALTO -- Vulnerabilidad grave detectada";
-    semaforoColor = NARANJA;
-  } else if (riesgo === 'MEDIUM') {
-    semaforoTexto = "RIESGO MEDIO -- Exposicion parcial confirmada";
-    semaforoColor = AMARILLO;
-  } else {
-    semaforoTexto = "RIESGO BAJO -- Mejora de seguridad recomendada";
-    semaforoColor = VERDE_CLARO;
-  }
-  PDFDoc.fillColor(semaforoColor).fontSize(15).font('Helvetica-Bold').text(semaforoTexto);
-  PDFDoc.moveDown(0.5);
-
-  // RESUMEN EJECUTIVO
-  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('QUE HEMOS ENCONTRADO');
-  PDFDoc.moveDown(0.2);
-  
-  let resumenExec = `Durante esta auditoria, se ejecuto el ataque '${nombre}' contra la infraestructura de ${empresa}. ${desc} El ataque fue catalogado con la tecnica ${mitre} del framework MITRE ATT&CK y detecto por la regla Wazuh ${wazuhRule}.`;
-  if (exitCode === 0 || exitCode === '0' || exitCode === 0) {
-    resumenExec += "\n\n[CONFIRMADO] El ataque se ejecuto sin errores. Su sistema es vulnerable a este vector de ataque.";
-  } else {
-    resumenExec += "\n\n[PARCIAL] El ataque encontro resistencia. Revisar la salida de consola para detalles.";
-  }
-  PDFDoc.fillColor(BLANCO).fontSize(10).font('Helvetica').text(resumenExec, { align: 'justify' });
-  PDFDoc.moveDown(0.5);
-
-  // FICHA TECNICA
-  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('DATOS TECNICOS');
-  PDFDoc.moveDown(0.2);
-  
-  const datosTecnicos = [
-    `Ataque:        ${nombre}`,
-    `MITRE ATT&CK:  ${mitre}`,
-    `Regla Wazuh:   ${wazuhRule}`,
-    `Nivel riesgo:  ${riesgo}`,
-    `Empresa:       ${empresa}`,
-    `Fecha:         ${fecha}`
-  ];
-  datosTecnicos.forEach(line => {
-    PDFDoc.fillColor(BLANCO).fontSize(9).font('Helvetica').text(line);
-  });
-  PDFDoc.moveDown(0.5);
-
-  // COMANDO EJECUTADO
-  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('PRUEBA DE CONCEPTO -- COMANDO LANZADO');
-  PDFDoc.moveDown(0.2);
-  
-  let cmdY = PDFDoc.y;
-  PDFDoc.rect(35, cmdY, 525, 25).fill('#111111');
-  PDFDoc.fillColor(VERDE_NEON).fontSize(8).font('Courier-Bold').text(comando, 42, cmdY + 8);
-  PDFDoc.text('', 40, cmdY + 35);
-  PDFDoc.moveDown(0.5);
-
-  // OUTPUT CONSOLA
-  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('SALIDA DE CONSOLA (KALI LINUX)');
-  PDFDoc.moveDown(0.2);
-  
-  let consoleY = PDFDoc.y;
-  const salidaTruncada = salida.split('\n').slice(0, 25).join('\n');
-  PDFDoc.rect(35, consoleY, 525, 140).fill('#111111');
-  PDFDoc.fillColor(VERDE_NEON).fontSize(7.5).font('Courier').text(salidaTruncada, 42, consoleY + 8, {
-    width: 510,
-    height: 124,
-    ellipsis: true
-  });
-  PDFDoc.text('', 40, consoleY + 150);
-  PDFDoc.moveDown(0.5);
-
-  // RECOMENDACIONES
-  PDFDoc.fillColor(VERDE_NEON).fontSize(11).font('Helvetica-Bold').text('MEDIDAS CORRECTIVAS RECOMENDADAS');
-  PDFDoc.moveDown(0.2);
-
-  let recsList = [];
-  if (riesgo === 'CRITICAL') {
-    recsList = [
-      "1. URGENTE: Aislar el segmento de red afectado en menos de 24 horas",
-      "2. Activar monitorizacion 24/7 y escalar al CISO inmediatamente",
-      "3. Revisar todos los logs del SIEM de los ultimos 7 dias",
-      "4. Contratar auditoria forense externa para evaluar el alcance real",
-      "5. Notificar a direccion y valorar notificacion a la AEPD si hay datos personales expuestos"
-    ];
-  } else if (riesgo === 'HIGH') {
-    recsList = [
-      "1. Aplicar parche o configuracion correctiva en menos de 72 horas",
-      "2. Revisar logs del SIEM de los ultimos 30 dias en busca de actividad similar",
-      "3. Segmentar la red para limitar el movimiento lateral del atacante",
-      "4. Formar al equipo tecnico sobre este vector de ataque especifico"
-    ];
-  } else if (riesgo === 'MEDIUM') {
-    recsList = [
-      "1. Planificar remediacion en el proximo sprint de seguridad (max 2 semanas)",
-      "2. Documentar el hallazgo en el registro de riesgos corporativo",
-      "3. Revisar la configuracion del firewall y las politicas de acceso"
-    ];
-  } else {
-    recsList = [
-      "1. Registrar como mejora tecnica y revisar en la proxima auditoria trimestral",
-      "2. Informar al equipo de IT para valorar la implementacion de controles adicionales"
-    ];
-  }
-
-  recsList.forEach(rec => {
-    let recColor = BLANCO;
-    if (riesgo === 'CRITICAL') recColor = ROJO;
-    else if (riesgo === 'HIGH') recColor = NARANJA;
-    else if (riesgo === 'MEDIUM') recColor = AMARILLO;
-    else recColor = VERDE_CLARO;
-    
-    PDFDoc.fillColor(recColor).fontSize(9).font('Helvetica').text(rec);
-  });
-  PDFDoc.moveDown(1.0);
-
-  // PIE DE PAGINA
-  let footerY = Math.max(PDFDoc.y, 700);
-  if (footerY > 730) {
-    PDFDoc.addPage();
-    footerY = 700;
-  }
-  
-  PDFDoc.moveTo(35, footerY).lineTo(560, footerY).strokeColor(VERDE_NEON).stroke();
-  PDFDoc.fillColor(GRIS).fontSize(7.5).font('Helvetica').text('Generado automaticamente por CyberShield ASV -- UCLM 2025/26', 35, footerY + 8);
-  PDFDoc.text('Documento CONFIDENCIAL. No distribuir sin autorizacion escrita.', 35, footerY + 18);
-  PDFDoc.text(`ID: ${reportId}`, 35, footerY + 28);
-
-  PDFDoc.end();
+  // Escribir en stdin de Python y finalizar stream
+  pythonProcess.stdin.write(payload);
+  pythonProcess.stdin.end();
 });
 
 // ATTACK LOGS
