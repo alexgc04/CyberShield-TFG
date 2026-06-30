@@ -263,7 +263,7 @@ def main():
     story.append(make_heading("1. Resumen Ejecutivo"))
     story.append(Spacer(1, 6))
 
-    resumen_text = f"Durante esta auditoria, se ejecuto el ataque '{nombre}' contra la infraestructura de {empresa}. {desc} El ataque fue catalogado con la tecnica {mitre} del framework MITRE ATT&CK y detecto por la regla Wazuh {wazuhRule}."
+    resumen_text = f"Durante esta auditoria, se ejecuto el ataque '{nombre}' contra la infraestructura de {empresa}. {desc} El ataque fue catalogado con la tecnica {mitre} del framework MITRE ATT&CK y detecto por la regla Wazuh {wazuh_rule}."
     if str(exit_code) == '0' or exit_code == 0:
         resumen_text += " <font color='#ff4444'><b>[CONFIRMADO]</b></font> El ataque se ejecuto sin errores. Su sistema es vulnerable a este vector de ataque."
     else:
