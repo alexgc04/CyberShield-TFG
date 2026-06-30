@@ -1106,11 +1106,50 @@ app.post("/api/wazuh/correlation", verifyToken, async (req, res) => {
 });
 
 // REPORTS GENERATE
-app.post("/api/reports/generate", (req, res) => {
+app.post("/api/reports/generate", async (req, res) => {
   const { spawn } = require("child_process");
 
+  let data = req.body;
+  if (data && typeof data === "object" && !data.attack_id) {
+    const keys = Object.keys(data);
+    if (keys.length === 1 && keys[0].trim().startsWith("{")) {
+      try {
+        data = JSON.parse(keys[0]);
+      } catch (e) {}
+    }
+  }
+
+  // Si los datos siguen vacíos o no tienen attack_id, buscar el último log de ataque en MongoDB
+  if (!data || !data.attack_id || data.attack_id === "") {
+    try {
+      const db = mongoose.connection.db;
+      if (db) {
+        const logsCol = db.collection('attack_logs');
+        const latestLog = await logsCol.find({}).sort({ timestamp: -1 }).limit(1).next();
+        if (latestLog) {
+          console.log(`[REPORT GENERATE] Payload vacío. Autocompletando con el último log de MongoDB: ${latestLog.attack_id || latestLog.attackId}`);
+          data = {
+            ...data,
+            attack_id: latestLog.attack_id || latestLog.attackId || latestLog.id,
+            attack_name: latestLog.attack_name || latestLog.attackName || latestLog.name,
+            mitre_id: latestLog.mitre_id || latestLog.mitreId,
+            company_name: latestLog.company_name || latestLog.companyName || 'CyberShield Company',
+            command_executed: latestLog.command || latestLog.command_executed || latestLog.commandExecuted,
+            ssh_output: latestLog.output || latestLog.ssh_output || latestLog.stdout,
+            ssh_exit_code: latestLog.exit_code !== undefined ? latestLog.exit_code : (latestLog.exitCode !== undefined ? latestLog.exitCode : 0),
+            wazuh_rule_id: latestLog.wazuh_rule_id || latestLog.wazuhRuleId,
+            risk_level: latestLog.risk_level || latestLog.riskLevel,
+            description: latestLog.description
+          };
+        }
+      }
+    } catch (err) {
+      console.error("[REPORT GENERATE] Error al consultar último log de ataque:", err);
+    }
+  }
+
   // Serializar el body de la petición para enviarlo por stdin a Python
-  const payload = JSON.stringify(req.body);
+  const payload = JSON.stringify(data);
 
   // Ejecutar el script generador en Python pasándole el payload
   const pythonProcess = spawn("python", ["generate_report.py"]);

@@ -306,7 +306,30 @@ def main():
         empresa = 'CyberShield Company'
 
     mitre = body_data.get("mitre_id") or fallback_info.get("mitre_id") or (tmpl.get("mitre_id") if tmpl else None) or 'T1557'
-    riesgo = (body_data.get("risk_level") or fallback_info.get("risk_level") or (tmpl.get("risk_level") if tmpl else None) or 'MEDIUM').upper()
+    
+    # Calcular riesgo dinámico basado en exit_code
+    riesgo_base = (body_data.get("risk_level") or fallback_info.get("risk_level") or (tmpl.get("risk_level") if tmpl else None) or 'MEDIUM').upper()
+    is_success = False
+    try:
+        val = str(exit_code).strip()
+        if val == '0':
+            is_success = True
+    except Exception:
+        pass
+
+    if is_success:
+        if riesgo_base in ['CRITICAL', 'HIGH']:
+            riesgo = 'CRITICAL'
+        elif riesgo_base == 'MEDIUM':
+            riesgo = 'HIGH'
+        else:
+            riesgo = 'MEDIUM'
+    else:
+        if riesgo_base in ['CRITICAL', 'HIGH']:
+            riesgo = 'MEDIUM'
+        else:
+            riesgo = 'LOW'
+
     desc = body_data.get("description") or fallback_info.get("description") or (tmpl.get("description") if tmpl else None) or 'Simulacion de intrusion defensiva.'
     
     comando = body_data.get("command_executed")
