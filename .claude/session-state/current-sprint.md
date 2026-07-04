@@ -1,7 +1,5 @@
-# Estado del Sprint — CyberShield TFG
-
-Última actualización: 2026-06-19
-Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
+# Estado del Sprint — CyberShield TFGÚltima actualización: 2026-07-04
+Agente que actualizó: Antigravity (Claude 3.5 Sonnet)
 
 ---
 
@@ -39,60 +37,35 @@ Agente que actualizó: Antigravity (Claude Opus 4.6 Thinking)
 - Configuración de flujo de n8n completada ✅ (Reemplazo dinámico de variables en código JS, query Mongo por attack_name, timeout en la ejecución Kali para evitar loops infinitos de comandos continuos).
 - Rediseño visual de "Wazuh Security Modules" en `Defensive.tsx` completado ✅ (Layout idéntico al Wazuh Overview oficial, etiquetas flotantes superiores y módulo CyberShield resaltado en verde con conteo de reglas).
 - Terminal SSH interactiva real conectada con Kali Linux en `Offensive.tsx` y `server.js` (`POST /api/ssh/execute`) completada ✅ (Permite ejecutar cualquier comando de red/sistema en Kali, y canaliza los outputs y logs de las tarjetas de ataque en tiempo real al buffer de la consola).
-- Motor de informes PDF premium y oscuro reescrito en `server.js` (`POST /api/reports/generate`) completado ✅ (Corrige la extracción de datos de n8n, elimina emojis que corrompen el renderizado, optimiza espacio para evitar páginas vacías y escala las medidas correctivas según el nivel de riesgo).
+- Motor de informes PDF premium y oscuro reescrito en `server.js` (`POST /api/reports/generate`) completado ✅ (Corrige la extracción de datos de n8n, elminando emojis que corrompen el renderizado, optimiza espacio para evitar páginas vacías y escala las medidas correctivas según el nivel de riesgo).
+- **Fase de Validación de Ataques y Correlación (Sprint 1 & 2) ✅**:
+  - [x] Conectar Wazuh Agent en Kali con Wazuh Manager en Debian (Registro manual via key import)
+  - [x] Validar la ejecución y correlación en tiempo real de los 15 módulos del TFG
+  - [x] Comprobar que todas las alertas correspondientes se reflejan automáticamente en el Dashboard Defensivo
+  - [x] Verificar la descarga del PDF de reporte técnico generado en la sección /reports
+- **Integración de Fondos WebGL Interactivos (React Bits) ✅**:
+  - [x] Fondo ColorBends (Verde y Negro) en Dashboard y sección Sobre el Proyecto
+  - [x] Fondo Radar (Rojo) en consola ofensiva y sección Ataques
+  - [x] Fondo RippleGrid (Azul) en consola defensiva y sección Detección
+  - [x] Fondo Threads (Morado) en reportes y sección Arquitectura
+  - [x] Eliminado z-index conflictivo e implementadas transiciones de difuminado vertical entre secciones
+- **Limpieza de Repositorio y README Profesional ✅**:
+  - [x] Eliminar script redundante duplicado scripts/seed-templates.js
+  - [x] Crear README.md profesional de presentación corporativa en la raíz
+  - [x] Actualizar documentación de sprint
 
 ### 🔄 EN CURSO
-- **Fase de Validación de Ataques y Correlación (Sprint 1 & 2)**:
-  - [x] Conectar Wazuh Agent en Kali con Wazuh Manager en Debian (Registro manual via key import ✅)
-  - [/] Validar la ejecución y correlación en tiempo real de los 15 módulos del TFG:
-    - [ ] **MOD01: MAC Flooding** (LAN-001) -> Comando de red: `macof`
-    - [ ] **MOD02: Switch Port Stealing** (LAN-002) -> Comando de red: `arpspoof`
-    - [ ] **MOD03: SPAN/Port Mirror** (LAN-003) -> Comando de red: `tcpdump`
-    - [ ] **MOD04: Túneles/Canales Encubiertos** (LAN-004) -> Comando de red: `nping`
-    - [ ] **MOD05a: ARP Spoofing (Inyección)** (LAN-005a) -> Comando de red: `arpspoof`
-    - [ ] **MOD05b: ARP Spoofing (MitM)** (LAN-005b) -> Comando de red: `arpspoof -t`
-    - [ ] **MOD06: DHCP Starvation** (LAN-006) -> Comando de red: `yersinia`
-    - [ ] **MOD07: Scapy SYN Scan** (SCAPY-001) -> Script inline de Python3 con Scapy
-    - [ ] **MOD08: Scapy ACK Scan** (SCAPY-002) -> Script inline de Python3 con Scapy
-    - [ ] **MOD09: Scapy ARP Scan** (SCAPY-003) -> Script inline de Python3 con Scapy
-    - [ ] **MOD10: Scapy Fuzzing** (SCAPY-004) -> Script inline de Python3 con Scapy
-    - [ ] **MOD11: Fuerza Bruta SSH** (BF-001) -> Auditoría con Medusa
-    - [ ] **MOD12: Fuerza Bruta Web** (BF-002) -> Auditoría con Hydra
-    - [ ] **MOD13: Escalada de Privilegios Local** (PRIV-001) -> Auditoría de SUID/sudo/cron
-    - [ ] **MOD14: Escalada de Dominio Kerberos** (PRIV-002) -> Kerbrute + GetNPUsers (Active Directory)
-  - [ ] Comprobar que todas las alertas correspondientes se reflejan automáticamente en el Dashboard Defensivo ([/defensive](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/pages/Defensive.tsx)) al ejecutarse.
-  - [ ] Verificar la descarga del PDF de reporte técnico generado para cada módulo en la sección [/reports](file:///c:/Users/Alex%20gc/Desktop/CyberShield/lovable/src/pages/Reports.tsx).
-
-- **Sprint 1: Módulos de Ataque ✅**
-  - Actualizado `attack_templates.json` a exactamente 15 módulos (14 LAN/Scapy/Brute/PrivEsc + PRIV-002 Kerberos a petición del usuario).
-  - Eliminado `command_alt` en LAN-001.
-  - Corregido LAN-005b para hacer match exacto con el doc de ataques (MitM completo sin `sh -c`).
-  - Actualizado `local_rules.xml` con la regla padre 100499 y reglas hijas 100500-100513 exactas.
-  - Actualizado `seed-templates.js` con funcionalidad de limpieza de plantillas huérfanas en MongoDB.
-  - Verificación cruzada automática (JSON vs XML) superada con éxito (0 errores).
-
-- **Sprint 2: Rediseño Visual, Consola Interactiva y QA-TESTER ✅**
-  - Rediseñado por completo el Módulo Ofensivo (`Offensive.tsx`) con filtros por categorías y tarjetas premium de riesgo (luminosas).
-  - Creado modal de configuración dinámico y reactivo para los parámetros de los ataques.
-  - Desarrollada terminal Linux interactiva funcional con línea de comandos (`help`, `clear`, `status`, `list`, `run <id>`), buffer de logs, simulación SSH y botón de descarga directa de PDF.
-  - Integrada barra de progreso dinámica animada con fases de intrusión durante la ejecución de ataques.
-  - Creada sección y página web dedicada para Reportes (`Reports.tsx`) sincronizada con MongoDB, permitiendo consultar el historial de auditorías y descargar PDFs.
-  - Refacturado backend para guardar PDFs en disco (`reports/`) y servirlos de forma estática en `/api/reports/*.pdf`, además de crear el endpoint `/api/reports` para listar el historial.
-  - Añadido fondo de pantalla de escudo roto (`broken-shield.png`) con opacidad sutil en el dashboard defensivo (`Defensive.tsx`).
-  - Integrado el rol de `QA-Tester` (`docs/agents/QA-TESTER.md`) en la metodología de la agencia.
-  - Documentados flujos de n8n en `docs/AGENCY.md` (unificando `N8N.md`).
-  - Implementada suite de pruebas unitarias en `lovable/src/test/wazuhService.test.ts` con paso exitoso en Vitest.
-  - IPs dinámicas de ataque e indicadores visuales de Kali/Wazuh conectados con el backend (/api/health) y mostrados dinámicamente en el dashboard ofensivo (/offensive).
-  - Robustez del flujo de n8n (`attack-executor.json`) mejorada: añadida opción de continuar en caso de fallo en el nodo MongoDB, reemplazo dinámico de variables en el nodo Code JS y encadenamiento seguro del comando de ataque con el de logging de Wazuh.
+- Ninguno (Sprint Finalizado exitosamente)
 
 ### 📋 PENDIENTE (en este orden)
-- Probar todos los ataques que funcionen
-- Comprobar que se reflejan las alertas correspondientes en la parte defensiva
-- GitHub cleanup + README final
+- Ninguno
 
 ---
 
 ## PRÓXIMO PASO INMEDIATO
+- Presentación y entrega final al usuario del TFG completado al 100%.
+
+---O PASO INMEDIATO
 Comprobar ejecución real del ataque utilizando n8n y verificar visualización del reporte en PDF.
 
 ---
