@@ -1,0 +1,85 @@
+<mxfile host="Electron" modified="2026-07-03T16:00:00.000Z" agent="Mozilla/5.0" etag="cybershield-components" version="21.0.0" type="device">
+  <diagram id="component-page" name="Arquitectura de Componentes">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Component: React Frontend -->
+        <mxCell id="comp-frontend" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Frontend Web App&lt;br&gt;(React / Vite)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#00FF41;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="60" y="160" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: Express Backend -->
+        <mxCell id="comp-backend" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;API Gateway&lt;br&gt;(Express / Node.js)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#00c7ff;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="320" y="160" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: Database -->
+        <mxCell id="comp-db" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Database Server&lt;br&gt;(MongoDB)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#00c7ff;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="320" y="360" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: n8n Orchestrator -->
+        <mxCell id="comp-n8n" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Orchestrator Engine&lt;br&gt;(n8n Workflows)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#af52de;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="580" y="160" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: Kali Linux -->
+        <mxCell id="comp-kali" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Ofensivo&lt;br&gt;(Kali Linux Host)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#ff3b30;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="580" y="360" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: Wazuh SIEM -->
+        <mxCell id="comp-wazuh" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Defensivo&lt;br&gt;(Wazuh Manager/Indexer)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#00c7ff;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="320" y="550" width="200" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Component: Target Host -->
+        <mxCell id="comp-target" value="&amp;lt;&amp;lt;component&amp;gt;&amp;gt;&lt;br&gt;Objetivo Auditoría&lt;br&gt;(Victim OS + Wazuh Agent)" style="shape=component;align=left;spacingLeft=36;whiteSpace=wrap;html=1;strokeColor=#aaaaaa;strokeWidth=1.5;fillColor=#1a1a1a;fontColor=#ffffff;fontSize=11;fontFamily=monospace" vertex="1" parent="1">
+          <mxGeometry x="60" y="550" width="200" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Interfaces and Connectors -->
+        <!-- Front -> Back -->
+        <mxCell id="edge-f-b" value="HTTPS / REST" style="edgeStyle=none;html=1;endArrow=block;strokeColor=#00FF41;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-frontend" target="comp-backend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Back -> DB -->
+        <mxCell id="edge-b-db" value="Mongoose Connection" style="edgeStyle=none;html=1;endArrow=block;strokeColor=#00c7ff;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-backend" target="comp-db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Back -> n8n -->
+        <mxCell id="edge-b-n" value="HTTP POST Webhooks" style="edgeStyle=none;html=1;endArrow=block;strokeColor=#af52de;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-backend" target="comp-n8n">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- n8n -> Kali -->
+        <mxCell id="edge-n-k" value="SSH Tunnel / Port 22" style="edgeStyle=none;html=1;endArrow=block;strokeColor=#ff3b30;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-n8n" target="comp-kali">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Kali -> Target -->
+        <mxCell id="edge-k-t" value="LAN Attacks (CAM/ARP/SSH)" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#ff3b30;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-kali" target="comp-target">
+          <mxGeometry relative="1" as="geometry">
+            <Array points="670, 500; 160, 500" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Target -> Wazuh -->
+        <mxCell id="edge-t-w" value="Wazuh Protocol / Port 1514" style="edgeStyle=none;html=1;endArrow=block;strokeColor=#00c7ff;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-target" target="comp-wazuh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Back -> Wazuh -->
+        <mxCell id="edge-b-w" value="Wazuh REST API / Indexer" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#00c7ff;fontSize=9;fontColor=#ffffff;fontFamily=monospace" edge="1" parent="1" source="comp-backend" target="comp-wazuh">
+          <mxGeometry relative="1" as="geometry">
+            <Array points="520, 205; 520, 595" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

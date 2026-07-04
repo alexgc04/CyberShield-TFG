@@ -25,6 +25,14 @@ async function seed() {
         await col.updateOne({ id: t.id }, { $set: t }, { upsert: true });
         console.log(`✅ ${t.id} - ${t.name}`);
     }
+
+    // Eliminar plantillas huérfanas (las que están en MongoDB pero no en el JSON)
+    const validIds = templates.map(t => t.id);
+    const deleted = await col.deleteMany({ id: { $nin: validIds } });
+    if (deleted.deletedCount > 0) {
+        console.log(`🗑️  ${deleted.deletedCount} plantilla(s) huérfana(s) eliminada(s).`);
+    }
+
     await client.close();
     console.log(`\nSeeding completado: ${templates.length} plantillas procesadas.`);
 }

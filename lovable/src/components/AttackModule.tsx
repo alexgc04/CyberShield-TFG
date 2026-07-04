@@ -120,7 +120,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
 
     let active = true;
     setLoadingTemplate(true);
-    fetch(`/api/attacks/templates/${attackId}`)
+    fetch(`/api/attacks/templates/${attackId}`, { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error("No se pudo cargar la plantilla");
         return res.json();
@@ -187,7 +187,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
     setResult(null);
     setError(null);
     setProgress(5);
-    setProgressText(`Conectando al agente Kali Linux (${kaliIp || "10.10.10.21"})...`);
+    setProgressText(`Conectando al agente Kali Linux (${kaliIp || "192.168.1.150"})...`);
 
     const fCmd = getRenderedCommand();
     if (onTerminalLine) {
@@ -218,6 +218,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
       const res = await fetch("/api/attacks/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           attack_id: template.id,
           parameters: params,
@@ -308,15 +309,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
   return (
     <div
       ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      style={{
-        ...tiltStyle,
-        backgroundImage: hoverBg ? `${hoverBg}` : undefined,
-      }}
-      className="transition-all duration-300 rounded-lg overflow-hidden"
+      className="transition-all duration-300 rounded-lg overflow-hidden hover:scale-[1.015] hover:shadow-[0_0_20px_rgba(0,255,65,0.08)]"
     >
       <Card className="border-border bg-card/40 glow-green text-foreground overflow-hidden font-sans">
       <CardHeader className="border-b border-border/40 pb-3">

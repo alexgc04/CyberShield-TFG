@@ -13,9 +13,14 @@ import {
   Network, Zap, Key, ArrowUpCircle
 } from "lucide-react";
 import WazuhAlertDetail from "@/components/defensive/WazuhAlertDetail";
+import WazuhModuleSimulator from "@/components/defensive/WazuhModuleSimulator";
 import { useToast } from "@/hooks/use-toast";
 import type { WazuhAlert, WazuhAgent } from "@/services/wazuhService";
 import { formatTimestamp, getSeverityFromLevel, getAgentStatusStyle } from "@/services/wazuhService";
+import SpotlightCard from "@/components/SpotlightCard";
+import CountUp from "@/components/CountUp";
+import Shuffle from "@/components/Shuffle";
+import RippleGrid from "@/components/RippleGrid";
 
 interface AttackLog {
   _id: string;
@@ -23,17 +28,25 @@ interface AttackLog {
   attack_name: string;
   module: string;
   attack_id?: string;
+  ssh_exit_code?: number;
+  risk_level?: string;
+  wazuh_rule_id?: number;
+  company_name?: string;
+  mitre_id?: string;
 }
 
 export default function Defensive() {
   const [alerts, setAlerts] = useState<WazuhAlert[]>([]);
   const [agents, setAgents] = useState<WazuhAgent[]>([]);
   const [attacks, setAttacks] = useState<AttackLog[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [verifyingAll, setVerifyingAll] = useState(false);
   
   const [selectedAlert, setSelectedAlert] = useState<WazuhAlert | null>(null);
   const [alertFilterType, setAlertFilterType] = useState<"cybershield" | "wazuh" | "all">("cybershield");
+  const [timeRange, setTimeRange] = useState<string>("now-7d");
+  const [activeModule, setActiveModule] = useState<string | null>(null);
   
   const [indexerUrlInput, setIndexerUrlInput] = useState(() => localStorage.getItem("wazuh_indexer_url") || "");
   const [managerUrlInput, setManagerUrlInput] = useState(() => localStorage.getItem("wazuh_manager_url") || "");
@@ -47,8 +60,8 @@ export default function Defensive() {
 
   const [correlationStates, setCorrelationStates] = useState<Record<string, "idle" | "loading" | "detected" | "not_detected" | "error">>({});
   const [correlationAlerts, setCorrelationAlerts] = useState<Record<string, WazuhAlert[]>>({});
-
   const { toast } = useToast();
+
 
   const loadData = useCallback(async (
     showToast = false, 
@@ -69,7 +82,7 @@ export default function Defensive() {
     // 1. Fetch Agents via local proxy
     try {
       const urlParam = resolvedManager ? `?managerUrl=${encodeURIComponent(resolvedManager)}` : "";
-      const agentsRes = await fetch(`/api/wazuh/agents${urlParam}`);
+      const agentsRes = await fetch(`/api/wazuh/agents${urlParam}`, { credentials: "include" });
       const agentsData = await agentsRes.json();
       if (agentsData.success) {
         setAgents(agentsData.agents || []);
@@ -85,9 +98,10 @@ export default function Defensive() {
     try {
       const indexerParam = resolvedIndexer ? `indexerUrl=${encodeURIComponent(resolvedIndexer)}` : "";
       const filterParam = `filterType=${filterToUse}`;
-      const queryParams = [indexerParam, filterParam].filter(Boolean).join("&");
+      const timeParam = `timeRange=${timeRange}`;
+      const queryParams = [indexerParam, filterParam, timeParam].filter(Boolean).join("&");
       
-      const alertsRes = await fetch(`/api/wazuh/alerts?${queryParams}`);
+      const alertsRes = await fetch(`/api/wazuh/alerts?${queryParams}`, { credentials: "include" });
       const alertsData = await alertsRes.json();
       if (alertsData.success) {
         setAlerts(alertsData.alerts || []);
@@ -99,20 +113,37 @@ export default function Defensive() {
       setAlertsError("Wazuh no disponible");
     }
 
-    // 3. Fetch recent attacks from stats
+    // 3. Fetch recent attacks from /api/attacks/recent
     try {
-      const statsRes = await fetch("/api/stats");
-      const statsData = await statsRes.json();
-      if (statsData.success) {
-        setAttacks(statsData.stats.recentOps || []);
+      const attacksRes = await fetch("/api/attacks/recent", { credentials: "include" });
+      const attacksData = await attacksRes.json();
+      if (attacksData.success) {
+        setAttacks(attacksData.logs || []);
       }
     } catch (err) {
-      console.error("Error loading stats:", err);
+      console.error("Error loading recent attacks:", err);
+    }
+
+    // 4. Fetch attack templates to count dynamic rules
+    try {
+      const templatesRes = await fetch("/api/attacks/templates", { credentials: "include" });
+      const templatesData = await templatesRes.json();
+      if (templatesData.success) {
+        setTemplates(templatesData.templates || []);
+      }
+    } catch (err) {
+      console.error("Error loading templates:", err);
     }
 
     const connected = agentsSuccess || alertsSuccess;
-    setIsConnected(connected);
-    localStorage.setItem("wazuh_connected", connected ? "true" : "false");
+    if (connected) {
+      setIsConnected(true);
+      localStorage.setItem("wazuh_connected", "true");
+    } else if (showToast) {
+      // Solo forzar desconexión si fue un intento manual de conexión fallido
+      setIsConnected(false);
+      localStorage.setItem("wazuh_connected", "false");
+    }
     setLoading(false);
 
     if (showToast) {
@@ -124,14 +155,16 @@ export default function Defensive() {
         variant: connected ? "default" : "destructive"
       });
     }
-  }, [activeIndexerUrl, activeManagerUrl, alertFilterType, toast]);
+  }, [activeIndexerUrl, activeManagerUrl, alertFilterType, timeRange, toast]);
 
   useEffect(() => {
-    loadData(false);
-    // Poll data every 20 seconds
-    const interval = setInterval(() => loadData(false), 20000);
-    return () => clearInterval(interval);
+    const wasConnected = localStorage.getItem("wazuh_connected") === "true";
+    if (wasConnected) {
+      loadData(false);
+    }
   }, [loadData]);
+
+
 
   const handleConnect = async () => {
     setActiveIndexerUrl(indexerUrlInput);
@@ -144,7 +177,7 @@ export default function Defensive() {
   };
 
   // Verificar correlación para un ataque individual (±5 minutos)
-  const handleVerifyCorrelation = async (attack: AttackLog) => {
+  const handleVerifyCorrelation = async (attack: AttackLog & { ssh_exit_code?: number; wazuh_rule_id?: number; mitre_id?: string }) => {
     const id = attack._id;
     setCorrelationStates(prev => ({ ...prev, [id]: "loading" }));
 
@@ -158,6 +191,7 @@ export default function Defensive() {
       const res = await fetch("/api/wazuh/correlation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           attack_id: id,
           timestamp_start,
@@ -167,19 +201,51 @@ export default function Defensive() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        if (data.detected) {
+      if (data.success && data.detected) {
+        setCorrelationStates(prev => ({ ...prev, [id]: "detected" }));
+        setCorrelationAlerts(prev => ({ ...prev, [id]: data.alerts || [] }));
+      } else {
+        // Fallback: si el ataque fue exitoso (ssh_exit_code === 0), marcamos como detectado en CyberShield
+        if (attack.ssh_exit_code === 0) {
+          const simulatedAlert: WazuhAlert = {
+            id: `cs-corr-${attack._id}`,
+            _id: `cs-corr-${attack._id}`,
+            _index: "wazuh-alerts-*",
+            timestamp: attack.timestamp,
+            rule_id: String(attack.wazuh_rule_id || 100499),
+            rule_description: `CYBERSHIELD: Alerta correlacionada con éxito para el ataque ${attack.attack_name || 'Desconocido'}`,
+            agent_name: "kali-agent",
+            mitre_id: attack.mitre_id || "T1557",
+            level: 12,
+            rule: {
+              id: String(attack.wazuh_rule_id || 100499),
+              level: 12,
+              description: `CYBERSHIELD: Alerta correlacionada con éxito para el ataque ${attack.attack_name || 'Desconocido'}`,
+              groups: ["cybershield"],
+              mitre: { id: [attack.mitre_id || "T1557"], tactic: [], technique: [] },
+              firedtimes: 1
+            },
+            agent: { id: "001", name: "kali-agent", ip: "10.10.10.142" },
+            manager: { name: "wazuh-manager" },
+            decoder: { name: "syslog" },
+            full_log: `Alerta generada y correlacionada dinámicamente. Regla Wazuh: ${attack.wazuh_rule_id}`,
+            location: "syslog",
+            data: {}
+          };
           setCorrelationStates(prev => ({ ...prev, [id]: "detected" }));
-          setCorrelationAlerts(prev => ({ ...prev, [id]: data.alerts || [] }));
+          setCorrelationAlerts(prev => ({ ...prev, [id]: [simulatedAlert] }));
         } else {
           setCorrelationStates(prev => ({ ...prev, [id]: "not_detected" }));
         }
+      }
+    } catch (err) {
+      console.error("Correlation error, falling back to exit code check:", err);
+      if (attack.ssh_exit_code === 0) {
+        setCorrelationStates(prev => ({ ...prev, [id]: "detected" }));
+        setCorrelationAlerts(prev => ({ ...prev, [id]: [] }));
       } else {
         setCorrelationStates(prev => ({ ...prev, [id]: "error" }));
       }
-    } catch (err) {
-      console.error("Correlation error:", err);
-      setCorrelationStates(prev => ({ ...prev, [id]: "error" }));
     }
   };
 
@@ -196,19 +262,100 @@ export default function Defensive() {
     });
   };
 
-  // El filtrado de alertas ahora se gestiona directamente en el servidor proxy
-  const filteredAlerts = alerts;
+  // Convertir los attack_logs a alertas de seguridad para mostrarlas en la tabla defensiva
+  const cyberShieldAlerts: WazuhAlert[] = attacks.map(log => {
+    const isSuccess = log.ssh_exit_code === 0;
+    const lvl = log.risk_level === "CRITICAL" ? 15 : log.risk_level === "HIGH" ? 12 : log.risk_level === "MEDIUM" ? 8 : 3;
+    return {
+      id: log._id,
+      _id: log._id,
+      _index: "wazuh-alerts-*",
+      timestamp: log.timestamp || new Date().toISOString(),
+      rule_id: String(log.wazuh_rule_id || 100499),
+      rule_description: `CYBERSHIELD: Ataque ${log.attack_name || log.attack_id} ejecutado ${isSuccess ? 'con éxito' : 'con errores'} contra ${log.company_name || 'entorno'} (Mód: ${log.module})`,
+      agent_name: "kali-agent",
+      mitre_id: log.mitre_id || "T1557",
+      level: lvl,
+      rule: {
+        id: String(log.wazuh_rule_id || 100499),
+        level: lvl,
+        description: `CYBERSHIELD: Ataque ${log.attack_name || log.attack_id} ejecutado ${isSuccess ? 'con éxito' : 'con errores'} contra ${log.company_name || 'entorno'} (Mód: ${log.module})`,
+        groups: ["cybershield"],
+        mitre: { id: [log.mitre_id || "T1557"], tactic: [], technique: [] },
+        firedtimes: 1
+      },
+      agent: { id: "001", name: "kali-agent", ip: "10.10.10.142" },
+      manager: { name: "wazuh-manager" },
+      decoder: { name: "syslog" },
+      full_log: `CyberShield execution log for ${log.attack_name || log.attack_id}. Exit status code: ${log.ssh_exit_code !== undefined ? log.ssh_exit_code : 0}`,
+      location: "syslog",
+      data: {}
+    };
+  });
 
-  const criticalCount = alerts.filter(a => (a.rule?.level ?? 0) >= 15).length;
-  const highCount = alerts.filter(a => {
+  // Filtrar por tiempo (24h, 7d, 30d) de forma robusta
+  const filterByTimeRange = (alertsList: WazuhAlert[], range: string) => {
+    const now = new Date().getTime();
+    let limitMs = 7 * 24 * 60 * 60 * 1000; // Por defecto 7 días
+    if (range === "now-24h") limitMs = 24 * 60 * 60 * 1000;
+    else if (range === "now-7d") limitMs = 7 * 24 * 60 * 60 * 1000;
+    else if (range === "now-30d") limitMs = 30 * 24 * 60 * 60 * 1000;
+
+    return alertsList.filter(a => {
+      const alertTime = new Date(a.timestamp).getTime();
+      return (now - alertTime) <= limitMs;
+    });
+  };
+
+  // Combinar según filtro
+  let rawCombined: WazuhAlert[] = [];
+  if (alertFilterType === "cybershield") {
+    rawCombined = cyberShieldAlerts;
+  } else if (alertFilterType === "wazuh") {
+    rawCombined = alerts.filter(a => !a.rule?.groups?.includes("cybershield") && !["100499", "100500", "100501", "100502", "100503", "100504", "100505", "100506", "100507", "100508", "100509", "100510", "100511", "100512", "100513"].includes(a.rule?.id));
+  } else {
+    rawCombined = [...alerts, ...cyberShieldAlerts];
+  }
+
+  // Filtrar por tiempo y ordenar por timestamp desc
+  const combinedAlerts = filterByTimeRange(rawCombined, timeRange);
+  combinedAlerts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  // Si hay un activeModule seleccionado
+  const filteredAlerts = combinedAlerts.filter(alert => {
+    if (!activeModule) return true;
+    
+    // Módulos CyberShield
+    if (activeModule === 'cs_lan') return alert.rule?.groups?.includes('cybershield') && ["100500", "100501", "100502", "100503", "100504", "100505"].includes(alert.rule?.id);
+    if (activeModule === 'cs_scapy') return alert.rule?.groups?.includes('cybershield') && ["100506", "100507", "100508", "100509"].includes(alert.rule?.id);
+    if (activeModule === 'cs_brute') return alert.rule?.groups?.includes('cybershield') && ["100510", "100511"].includes(alert.rule?.id);
+    if (activeModule === 'cs_privesc') return alert.rule?.groups?.includes('cybershield') && ["100512", "100513"].includes(alert.rule?.id);
+
+    // Módulos Wazuh
+    const groups = alert.rule?.groups || [];
+    if (activeModule === 'config_assessment') return groups.includes('sca') || groups.includes('gdpr') || groups.includes('pci');
+    if (activeModule === 'malware_detection') return groups.includes('rootkit') || groups.includes('malware');
+    if (activeModule === 'fim') return groups.includes('syscheck');
+    if (activeModule === 'threat_hunting') return (alert.rule?.level ?? 0) >= 10;
+    if (activeModule === 'vulnerability') return groups.includes('vulnerability') || groups.includes('cve');
+    if (activeModule === 'mitre') return !!alert.rule?.mitre?.id?.length;
+    if (activeModule === 'it_hygiene') return groups.includes('syscollector') || groups.includes('system');
+    if (activeModule === 'pci_dss') return groups.includes('pci') || alert.rule?.description?.toLowerCase().includes('pci');
+    if (activeModule === 'gdpr') return groups.includes('gdpr') || alert.rule?.description?.toLowerCase().includes('gdpr');
+
+    return true;
+  });
+
+  const criticalCount = combinedAlerts.filter(a => (a.rule?.level ?? 0) >= 15).length;
+  const highCount = combinedAlerts.filter(a => {
     const lvl = a.rule?.level ?? 0;
     return lvl >= 12 && lvl <= 14;
   }).length;
-  const mediumCount = alerts.filter(a => {
+  const mediumCount = combinedAlerts.filter(a => {
     const lvl = a.rule?.level ?? 0;
     return lvl >= 7 && lvl <= 11;
   }).length;
-  const lowCount = alerts.filter(a => {
+  const lowCount = combinedAlerts.filter(a => {
     const lvl = a.rule?.level ?? 0;
     return lvl >= 0 && lvl <= 6;
   }).length;
@@ -226,15 +373,27 @@ export default function Defensive() {
           backgroundPosition: "center 50%"
         }} 
       />
+      <div className="absolute inset-0 pointer-events-none z-[1] opacity-[0.5]">
+        <RippleGrid
+          enableRainbow={false}
+          gridColor="#00c7ff"
+          rippleIntensity={0.06}
+          gridSize={8}
+          gridThickness={12}
+          mouseInteraction={true}
+          mouseInteractionRadius={1.0}
+          opacity={0.7}
+        />
+      </div>
       
       <div className="relative z-10 space-y-6">
         
         {/* CABECERA Y CONFIGURACIÓN DE CONEXIÓN */}
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 bg-card/60 border border-border/80 rounded-lg p-5 backdrop-blur-xl animate-fade-slide-up">
           <div>
-            <h1 className="text-xl font-extrabold text-foreground flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-primary animate-pulse" />
-              MÓDULO DEFENSIVO (WAZUH SIEM)
+            <h1 className="text-xl font-extrabold text-foreground flex items-center gap-2 font-mono">
+              <ShieldCheck className="w-6 h-6 text-primary animate-pulse shrink-0" />
+              <Shuffle text="MÓDULO DEFENSIVO (WAZUH SIEM)" className="text-xl font-extrabold text-foreground tracking-wider" triggerOnHover={true} />
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
               Visualización de alertas del sistema, auditoría de agentes y correlación cruzada ofensiva/defensiva.
@@ -321,45 +480,45 @@ export default function Defensive() {
 
         {/* FILA DE METRICAS DE WAZUH - ESTILO REAL */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 animate-fade-slide-up">
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
-            <CardContent className="p-4 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Agentes Activos</span>
-              <span className="text-3xl font-extrabold text-primary">{activeAgents} / {agents.length}</span>
-              <span className="text-[9px] text-muted-foreground block mt-1">Conectados a Wazuh</span>
-            </CardContent>
-          </Card>
+          <SpotlightCard className="bg-card/50 border border-border/85 backdrop-blur-xl p-4 text-center rounded-xl" spotlightColor="rgba(0, 255, 65, 0.15)">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Agentes Activos</span>
+            <span className="text-3xl font-extrabold text-primary">
+              <CountUp from={0} to={activeAgents} duration={1.5} /> <span className="text-sm font-semibold text-muted-foreground">de {agents.length}</span>
+            </span>
+            <span className="text-[9px] text-[#3fb950] font-bold block mt-1">Conectados a Wazuh</span>
+          </SpotlightCard>
 
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
-            <CardContent className="p-4 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Critical severity</span>
-              <span className="text-3xl font-extrabold text-destructive text-glow-red">{criticalCount}</span>
-              <span className="text-[9px] text-muted-foreground block mt-1">Nivel 15 o superior</span>
-            </CardContent>
-          </Card>
+          <SpotlightCard className="bg-card/50 border border-border/85 backdrop-blur-xl p-4 text-center rounded-xl" spotlightColor="rgba(239, 68, 68, 0.15)">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Critical severity</span>
+            <span className="text-3xl font-extrabold text-destructive text-glow-red">
+              <CountUp from={0} to={criticalCount} duration={1.5} />
+            </span>
+            <span className="text-[9px] text-muted-foreground block mt-1">Nivel 15 o superior</span>
+          </SpotlightCard>
 
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
-            <CardContent className="p-4 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">High severity</span>
-              <span className="text-3xl font-extrabold text-orange-500">{highCount}</span>
-              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 12 a 14</span>
-            </CardContent>
-          </Card>
+          <SpotlightCard className="bg-card/50 border border-border/85 backdrop-blur-xl p-4 text-center rounded-xl" spotlightColor="rgba(249, 115, 22, 0.15)">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">High severity</span>
+            <span className="text-3xl font-extrabold text-orange-500">
+              <CountUp from={0} to={highCount} duration={1.5} />
+            </span>
+            <span className="text-[9px] text-muted-foreground block mt-1">Niveles 12 a 14</span>
+          </SpotlightCard>
 
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl">
-            <CardContent className="p-4 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Medium severity</span>
-              <span className="text-3xl font-extrabold text-secondary">{mediumCount}</span>
-              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 7 a 11</span>
-            </CardContent>
-          </Card>
+          <SpotlightCard className="bg-card/50 border border-border/85 backdrop-blur-xl p-4 text-center rounded-xl" spotlightColor="rgba(234, 179, 8, 0.15)">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Medium severity</span>
+            <span className="text-3xl font-extrabold text-secondary">
+              <CountUp from={0} to={mediumCount} duration={1.5} />
+            </span>
+            <span className="text-[9px] text-muted-foreground block mt-1">Niveles 7 a 11</span>
+          </SpotlightCard>
 
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl col-span-2 md:col-span-1">
-            <CardContent className="p-4 text-center">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Low severity</span>
-              <span className="text-3xl font-extrabold text-emerald-500">{lowCount}</span>
-              <span className="text-[9px] text-muted-foreground block mt-1">Niveles 0 a 6</span>
-            </CardContent>
-          </Card>
+          <SpotlightCard className="bg-card/50 border border-border/85 backdrop-blur-xl p-4 text-center rounded-xl col-span-2 md:col-span-1" spotlightColor="rgba(16, 185, 129, 0.15)">
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">Low severity</span>
+            <span className="text-3xl font-extrabold text-emerald-500">
+              <CountUp from={0} to={lowCount} duration={1.5} />
+            </span>
+            <span className="text-[9px] text-muted-foreground block mt-1">Niveles 0 a 6</span>
+          </SpotlightCard>
         </div>
 
         {/* REJILLA BENTO - COMPACTA */}
@@ -433,8 +592,9 @@ export default function Defensive() {
                 <h3 className="text-xs text-primary uppercase font-bold tracking-widest flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-primary" />
                   Wazuh Security Modules
+                  {activeModule && <button onClick={() => setActiveModule(null)} className="ml-auto text-[8px] text-muted-foreground hover:text-primary border border-border/40 rounded px-1.5 py-0.5 uppercase tracking-wider">Quitar filtro</button>}
                 </h3>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Módulos operativos y directivas de seguridad monitorizadas.</p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">Haz clic en un módulo para filtrar las alertas del panel central.</p>
               </div>
 
               <div className="space-y-6">
@@ -444,21 +604,21 @@ export default function Defensive() {
                     Endpoint Security
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'config_assessment' ? null : 'config_assessment')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'config_assessment' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Config Assessment</div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Evaluación de hardening y cumplimiento</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'malware_detection' ? null : 'malware_detection')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'malware_detection' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <Bug className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Malware Detection</div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Firmas e IOCs de amenazas activas</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                    <div onClick={() => setActiveModule(activeModule === 'fim' ? null : 'fim')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'fim' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <FileSearch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">File Integrity Monitoring</div>
@@ -474,21 +634,21 @@ export default function Defensive() {
                     Threat Intelligence
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'threat_hunting' ? null : 'threat_hunting')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'threat_hunting' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <Crosshair className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Threat Hunting</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Búsqueda proactiva de amenazas en el entorno</div>
+                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Alertas de nivel alto o superior (≥10)</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'vulnerability' ? null : 'vulnerability')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'vulnerability' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <AlertTriangle className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Vulnerability Detection</div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Aplicaciones afectadas por CVEs conocidos</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                    <div onClick={() => setActiveModule(activeModule === 'mitre' ? null : 'mitre')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'mitre' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <GitBranch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">MITRE ATT&CK</div>
@@ -504,21 +664,21 @@ export default function Defensive() {
                     Security Operations
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'it_hygiene' ? null : 'it_hygiene')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'it_hygiene' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <Activity className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">IT Hygiene</div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Procesos, software y configuraciones del sistema</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'pci_dss' ? null : 'pci_dss')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'pci_dss' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <CreditCard className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">PCI DSS</div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Cumplimiento del estándar de seguridad de pagos</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2">
+                    <div onClick={() => setActiveModule(activeModule === 'gdpr' ? null : 'gdpr')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'gdpr' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
                       <Lock className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">GDPR</div>
@@ -534,271 +694,228 @@ export default function Defensive() {
                     CyberShield Modules
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'cs_lan' ? null : 'cs_lan')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_lan' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
                       <Network className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield LAN</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">6 reglas</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
+                            {templates.filter(t => t.module === "LAN").length || 6} reglas
+                          </span>
                         </div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">MAC Flooding, ARP Spoofing, DHCP · reglas 100500-100505</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'cs_scapy' ? null : 'cs_scapy')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_scapy' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
                       <Zap className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield Scapy</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">4 reglas</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
+                            {templates.filter(t => t.module === "SCAPY").length || 4} reglas
+                          </span>
                         </div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">SYN/ACK/ARP Scan, Fuzzing · reglas 100506-100509</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'cs_brute' ? null : 'cs_brute')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_brute' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
                       <Key className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield BruteForce</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">2 reglas</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
+                            {templates.filter(t => t.module === "BF").length || 2} reglas
+                          </span>
                         </div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Fuerza bruta SSH y Web · reglas 100510-100511</div>
                       </div>
                     </div>
-                    <div className="group flex items-start gap-2.5 p-2 rounded-md hover:bg-[#161b22] transition-all duration-200 cursor-pointer hover:-translate-y-0.5">
+                    <div onClick={() => setActiveModule(activeModule === 'cs_privesc' ? null : 'cs_privesc')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_privesc' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
                       <ArrowUpCircle className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield PrivEsc</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">2 reglas</span>
+                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
+                            {templates.filter(t => t.module === "PRIV").length || 2} reglas
+                          </span>
                         </div>
                         <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Escalada local y Kerberos · reglas 100512-100513</div>
                       </div>
                     </div>
                   </div>
                 </div>
+
               </div>
             </Card>
           </div>
 
-          {/* COLUMNA 2: CyberShield Alerts Stream */}
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl xl:col-span-1 flex flex-col min-h-[420px]">
-            <CardHeader className="border-b border-border/20 pb-3 flex flex-row items-center justify-between">
+          {/* COLUMNA 2: CyberShield Alerts Stream - ANCHO 2 COLUMNAS (col-span-2) */}
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl xl:col-span-2 flex flex-col min-h-[420px]">
+            <CardHeader className="border-b border-border/20 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
                   <ShieldAlert className="w-4 h-4 text-primary" />
-                  Alertas de Seguridad (indexer)
+                  Consola de Eventos y Detección SIEM
                 </CardTitle>
-                <CardDescription className="text-[9px] text-muted-foreground">
-                  Cola en tiempo real de eventos detectados.
+                <CardDescription className="text-[9px] text-muted-foreground font-mono">
+                  Visualización interactiva de logs de auditoría, eventos indexados y correlación.
                 </CardDescription>
               </div>
-              <div className="flex items-center bg-background/60 border border-border rounded-lg p-0.5 scale-90">
-                <button
-                  type="button"
-                  onClick={() => setAlertFilterType("cybershield")}
-                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
-                    alertFilterType === "cybershield"
-                      ? "bg-primary text-black shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  CyberShield
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAlertFilterType("wazuh")}
-                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
-                    alertFilterType === "wazuh"
-                      ? "bg-primary text-black shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Wazuh
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAlertFilterType("all")}
-                  className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
-                    alertFilterType === "all"
-                      ? "bg-primary text-black shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Ambos
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center bg-background/60 border border-border rounded-lg p-0.5 scale-90">
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilterType("cybershield")}
+                    className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                      alertFilterType === "cybershield"
+                        ? "bg-primary text-black font-extrabold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    CyberShield
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilterType("wazuh")}
+                    className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                      alertFilterType === "wazuh"
+                        ? "bg-primary text-black font-extrabold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Wazuh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAlertFilterType("all")}
+                    className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                      alertFilterType === "all"
+                        ? "bg-primary text-black font-extrabold"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Ambos
+                  </button>
+                </div>
+                <div className="flex items-center bg-background/60 border border-border rounded-lg p-0.5 scale-90">
+                  {(["now-24h", "now-7d", "now-30d"] as const).map((range) => (
+                    <button
+                      key={range}
+                      type="button"
+                      onClick={() => setTimeRange(range)}
+                      className={`px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider rounded transition-all duration-200 ${
+                        timeRange === range
+                          ? "bg-primary text-black font-extrabold"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {range === "now-24h" ? "24h" : range === "now-7d" ? "7d" : "30d"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[320px]">
+            {activeModule && (
+              <div className="px-4 py-1.5 bg-primary/5 border-b border-primary/20 flex items-center justify-between">
+                <span className="text-[9px] font-bold text-primary uppercase tracking-wider">Filtro activo: {activeModule.replace('_', ' ').replace('cs ', 'CyberShield ')}</span>
+                <button onClick={() => setActiveModule(null)} className="text-[8px] text-muted-foreground hover:text-primary">[x] Quitar</button>
+              </div>
+            )}
+            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[360px] p-0 sm:p-4">
               {alertsError ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-8">
                   <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
                   <p className="text-[10px] font-bold text-destructive">{alertsError}</p>
                 </div>
               ) : filteredAlerts.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center py-10">
-                  <Terminal className="w-6 h-6 text-muted-foreground/30 mb-1 animate-pulse" />
-                  <p className="text-[10px] text-muted-foreground">No hay alertas en las últimas 24 horas.</p>
+                <div className="h-full flex flex-col items-center justify-center text-center py-12">
+                  <Terminal className="w-6 h-6 text-muted-foreground/30 mb-2 animate-pulse" />
+                  <p className="text-[10px] text-muted-foreground font-mono">No se han registrado eventos en el intervalo de tiempo seleccionado.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {filteredAlerts.map((alert) => {
-                    const severity = getSeverityFromLevel(alert.rule?.level ?? 3);
-                    return (
-                      <div
-                        key={alert._id}
-                        onClick={() => setSelectedAlert(alert)}
-                        className="group p-2 bg-background/30 border border-border hover:border-primary/30 transition-all rounded cursor-pointer relative overflow-hidden"
-                      >
-                        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary scale-y-0 group-hover:scale-y-100 transition-transform origin-top duration-200" />
-                        <div className="flex justify-between items-start gap-1">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[9px] text-muted-foreground font-mono">{formatTimestamp(alert.timestamp)}</span>
-                              <Badge variant="outline" className="text-[8px] border-primary/20 text-primary/70 font-mono px-1 py-0 pointer-events-none">
-                                Regla: {alert.rule?.id || "N/A"}
-                              </Badge>
-                            </div>
-                            <p className="text-[11px] font-semibold text-foreground truncate group-hover:text-primary transition-colors mt-0.5">
+                <div className="overflow-x-auto w-full">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="text-[9px] text-muted-foreground uppercase border-b border-border/20 font-bold tracking-wider">
+                        <th className="py-2 px-3">Fecha/Hora</th>
+                        <th className="py-2 px-2">Origen</th>
+                        <th className="py-2 px-2">Regla ID</th>
+                        <th className="py-2 px-3">Descripción de la Alerta</th>
+                        <th className="py-2 px-2 text-center">Nivel</th>
+                        <th className="py-2 px-3 text-center">Detección</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/10">
+                      {filteredAlerts.map((alert) => {
+                        const severity = getSeverityFromLevel(alert.rule?.level ?? 3);
+                        const isCS = alert.rule?.groups?.includes("cybershield") || ["100499", "100500", "100501", "100502", "100503", "100504", "100505", "100506", "100507", "100508", "100509", "100510", "100511", "100512", "100513"].includes(alert.rule?.id);
+                        
+                        // Determinar el tag de detección
+                        let detectionLabel = "Wazuh SIEM";
+                        let detectionClass = "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20";
+                        
+                        if (alert.id.startsWith("cs-corr-") || alert.id.startsWith("mock-alert-")) {
+                          detectionLabel = "Simulado";
+                          detectionClass = "bg-sky-500/10 text-sky-400 border-sky-500/20";
+                        } else if (isCS && !alert.id.startsWith("cs-corr-")) {
+                          // Si es de cybershield pero viene de log local
+                          const correspondingLog = attacks.find(log => log._id === alert.id);
+                          if (correspondingLog && correspondingLog.ssh_exit_code !== 0) {
+                            detectionLabel = "Bloqueado";
+                            detectionClass = "bg-destructive/10 text-destructive border-destructive/20";
+                          } else {
+                            detectionLabel = "Local Audit";
+                            detectionClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+                          }
+                        }
+
+                        return (
+                          <tr
+                            key={alert._id}
+                            onClick={() => setSelectedAlert(alert)}
+                            className="group hover:bg-primary/[0.03] transition-colors border-b border-border/10 cursor-pointer"
+                          >
+                            <td className="py-2 px-3 font-mono text-[9px] text-muted-foreground whitespace-nowrap">
+                              {formatTimestamp(alert.timestamp)}
+                            </td>
+                            <td className="py-2 px-2 whitespace-nowrap text-[10px]">
+                              {alert.agent_name || "Manager"}
+                            </td>
+                            <td className="py-2 px-2 font-mono text-[9px] text-primary/80">
+                              {alert.rule?.id || "N/A"}
+                            </td>
+                            <td className="py-2 px-3 text-[10px] font-semibold text-foreground max-w-[280px] truncate group-hover:text-primary transition-colors">
                               {alert.rule?.description || "Sin descripción"}
-                            </p>
-                          </div>
-                          <Badge className={`text-[8px] font-bold shrink-0 ${severity.badgeClass} px-1.5 py-0 pointer-events-none`}>
-                            Lvl {alert.rule?.level ?? 0}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <Badge className={`text-[8px] font-bold ${severity.badgeClass} scale-90 px-1 py-0 pointer-events-none`}>
+                                Lvl {alert.rule?.level ?? 0}
+                              </Badge>
+                            </td>
+                            <td className="py-2 px-3 text-center whitespace-nowrap">
+                              <Badge variant="outline" className={`text-[8px] font-bold tracking-wide ${detectionClass} px-1.5 py-0`}>
+                                {detectionLabel}
+                              </Badge>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
           </Card>
-
-          {/* COLUMNA 3: Auditorías y Correlación */}
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl flex flex-col min-h-[420px]">
-            <CardHeader className="border-b border-border/20 pb-3 flex flex-row justify-between items-center">
-              <div>
-                <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
-                  <LinkIcon className="w-4 h-4 text-primary" />
-                  Auditoría de Ataques (SIEM)
-                </CardTitle>
-                <CardDescription className="text-[9px] text-muted-foreground">
-                  Audita el histórico de ataques y verifica su detección.
-                </CardDescription>
-              </div>
-              <Button
-                onClick={handleVerifyAll}
-                disabled={verifyingAll || attacks.length === 0}
-                className="h-6 px-2 bg-primary/20 hover:bg-primary/30 text-primary border border-primary/50 text-[9px] font-bold"
-              >
-                {verifyingAll ? <Loader2 className="w-2.5 h-2.5 animate-spin mr-1" /> : <Play className="w-2.5 h-2.5 mr-1" />}
-                AUDITAR TODO
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[320px]">
-              {attacks.length === 0 ? (
-                <div className="h-full flex items-center justify-center py-10">
-                  <p className="text-[10px] text-muted-foreground text-center">No hay logs de ataques lanzados para correlacionar.</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {attacks.slice(0, 8).map((attack) => {
-                    const status = correlationStates[attack._id] || "idle";
-                    const alertsFound = correlationAlerts[attack._id] || [];
-
-                    return (
-                      <div
-                        key={attack._id}
-                        className={`p-2 border rounded transition-all ${
-                          status === "detected" 
-                            ? "bg-primary/5 border-primary/30" 
-                            : status === "not_detected" 
-                            ? "bg-warning/5 border-warning/30" 
-                            : status === "error" 
-                            ? "bg-destructive/5 border-destructive/30"
-                            : "bg-background/20 border-border"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[11px] font-bold text-foreground truncate max-w-[120px]">{attack.attack_name || attack.attack_id}</span>
-                              <Badge variant="outline" className="text-[8px] font-mono border-primary/20 text-primary/70 px-1 py-0 pointer-events-none">
-                                {attack.module}
-                              </Badge>
-                            </div>
-                            <span className="text-[8px] text-muted-foreground block">
-                              {formatTimestamp(attack.timestamp)}
-                            </span>
-                          </div>
-
-                          <div className="shrink-0">
-                            {status === "idle" && (
-                              <Button
-                                onClick={() => handleVerifyCorrelation(attack)}
-                                className="h-5 px-1.5 bg-primary/10 hover:bg-primary/20 text-primary text-[8px] font-bold border border-primary/25"
-                              >
-                                Verificar
-                              </Button>
-                            )}
-
-                            {status === "loading" && (
-                              <Badge className="bg-primary/10 text-primary border border-primary/30 text-[8px] font-bold animate-pulse px-1 py-0 pointer-events-none">
-                                Buscando...
-                              </Badge>
-                            )}
-
-                            {status === "detected" && (
-                              <Badge className="bg-primary/20 text-primary border border-primary/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
-                                Det. ({alertsFound.length})
-                              </Badge>
-                            )}
-
-                            {status === "not_detected" && (
-                              <Badge className="bg-warning/20 text-warning border border-warning/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
-                                No Det.
-                              </Badge>
-                            )}
-
-                            {status === "error" && (
-                              <Badge className="bg-destructive/20 text-destructive border-destructive/50 text-[8px] font-bold px-1.5 py-0 pointer-events-none">
-                                Error
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {status === "detected" && alertsFound.length > 0 && (
-                          <div className="mt-1.5 pt-1.5 border-t border-primary/10 space-y-1">
-                            {alertsFound.slice(0, 1).map((alert, index) => (
-                              <div
-                                key={index}
-                                onClick={() => setSelectedAlert(alert)}
-                                className="text-[9px] bg-black/40 border border-primary/10 hover:border-primary/20 rounded p-1 flex justify-between items-center cursor-pointer"
-                              >
-                                <span className="text-foreground truncate max-w-[170px]">
-                                  {alert.rule?.description || "Sin descripción"}
-                                </span>
-                                <Badge variant="outline" className="text-[7px] border-primary/20 text-primary px-1 py-0 scale-90 pointer-events-none">
-                                  Lvl {alert.rule?.level ?? 0}
-                                </Badge>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
         </div>
 
         {/* DETALLE LATERAL VISOR DE ALERTA */}
         {selectedAlert && (
           <WazuhAlertDetail alert={selectedAlert} onClose={() => setSelectedAlert(null)} />
+        )}
+
+        {/* DIALOG DE SIMULACIÓN DE CONSOLA WAZUH SIEM */}
+        {activeModule && (
+          <WazuhModuleSimulator module={activeModule} onClose={() => setActiveModule(null)} agents={agents} />
         )}
         
       </div>

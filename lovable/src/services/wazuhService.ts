@@ -57,6 +57,12 @@ export interface AgentSummary {
 export interface WazuhAlert {
   _id: string;              // ID del documento en OpenSearch
   _index: string;           // Índice donde está almacenada
+  id?: string;              // ID alias para compatibilidad
+  agent_name?: string;      // Nombre de agente alias para compatibilidad
+  rule_id?: string;         // ID de regla alias para compatibilidad
+  rule_description?: string;// Descripción de regla alias para compatibilidad
+  mitre_id?: string;        // ID MITRE alias para compatibilidad
+  level?: number;           // Nivel alias para compatibilidad
   timestamp: string;        // Cuándo se generó la alerta
   rule: {
     id: string;             // ID de la regla (ej: "5712")

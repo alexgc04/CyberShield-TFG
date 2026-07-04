@@ -8,6 +8,8 @@ import {
   ShieldAlert, Calendar, RefreshCw, Loader2, Play, Trash2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import SpotlightCard from "@/components/SpotlightCard";
+import Shuffle from "@/components/Shuffle";
 
 interface AttackLog {
   _id: string;
@@ -32,7 +34,7 @@ export default function Reports() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/reports");
+      const res = await fetch("/api/reports", { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setReports(data.reports);
@@ -80,6 +82,7 @@ export default function Reports() {
     try {
       const res = await fetch(`/api/reports/${id}`, {
         method: "DELETE",
+        credentials: "include"
       });
       const data = await res.json();
       if (data.success) {
@@ -118,14 +121,17 @@ export default function Reports() {
 
   return (
     <div className="relative pb-12 font-mono">
-      <div className="fixed inset-0 bg-cover bg-center opacity-15 pointer-events-none z-0" style={{ backgroundImage: "url('/images/servers.png')" }} />
+      <div className="absolute inset-0 pointer-events-none z-[1] opacity-[0.25]">
+        <Threads color={[0.68, 0.32, 0.87]} amplitude={2.5} distance={0.45} enableMouseInteraction={true} />
+      </div>
       <div className="space-y-6 relative z-10">
         
         {/* Header de la página */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30 pb-4">
           <div>
             <h1 className="text-2xl font-bold text-primary text-glow-green tracking-wider flex items-center gap-2">
-              <FileText className="w-6 h-6 animate-pulse" /> REPOSITORIO DE REPORTES
+              <FileText className="w-6 h-6 animate-pulse shrink-0" />
+              <Shuffle text="REPOSITORIO DE REPORTES" className="text-2xl font-bold text-primary text-glow-green tracking-wider" triggerOnHover={true} />
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
               Historial de auditorías · descarga de reportes PDF académicos · registro de ejecuciones Kali Linux
@@ -197,9 +203,10 @@ export default function Reports() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filteredReports.map((rpt) => (
-              <Card 
+              <SpotlightCard 
                 key={rpt._id} 
-                className="bg-card/45 backdrop-blur-md border border-border/40 hover:border-primary/40 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-4"
+                spotlightColor="rgba(0, 255, 65, 0.08)"
+                className="bg-card/45 backdrop-blur-md border border-border/40 hover:border-primary/40 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center justify-between p-4 gap-4 rounded-xl"
               >
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="p-2.5 bg-primary/10 border border-primary/20 text-primary rounded-lg shrink-0">
@@ -274,7 +281,7 @@ export default function Reports() {
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-              </Card>
+              </SpotlightCard>
             ))}
           </div>
         )}

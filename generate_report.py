@@ -307,6 +307,11 @@ def main():
 
     mitre = body_data.get("mitre_id") or fallback_info.get("mitre_id") or (tmpl.get("mitre_id") if tmpl else None) or 'T1557'
     
+    # Resolver exit_code primero para evitar error de referencia
+    exit_code = body_data.get("ssh_exit_code")
+    if exit_code is None:
+        exit_code = '-'
+
     # Calcular riesgo dinámico basado en exit_code
     riesgo_base = (body_data.get("risk_level") or fallback_info.get("risk_level") or (tmpl.get("risk_level") if tmpl else None) or 'MEDIUM').upper()
     is_success = False
@@ -318,17 +323,11 @@ def main():
         pass
 
     if is_success:
-        if riesgo_base in ['CRITICAL', 'HIGH']:
-            riesgo = 'CRITICAL'
-        elif riesgo_base == 'MEDIUM':
-            riesgo = 'HIGH'
-        else:
-            riesgo = 'MEDIUM'
+        # Si tiene éxito, se reporta la severidad real del ataque
+        riesgo = riesgo_base
     else:
-        if riesgo_base in ['CRITICAL', 'HIGH']:
-            riesgo = 'MEDIUM'
-        else:
-            riesgo = 'LOW'
+        # Si falla o es bloqueado, se rebaja directamente a LOW (Mitigado)
+        riesgo = 'LOW'
 
     desc = body_data.get("description") or fallback_info.get("description") or (tmpl.get("description") if tmpl else None) or 'Simulacion de intrusion defensiva.'
     
@@ -337,9 +336,6 @@ def main():
         comando = fallback_info.get("command") or (tmpl.get("command") if tmpl else None) or 'sudo -l'
 
     salida = body_data.get("ssh_output") or '(sin salida de consola)'
-    exit_code = body_data.get("ssh_exit_code")
-    if exit_code is None:
-        exit_code = '-'
     wazuh_rule = body_data.get("wazuh_rule_id") or fallback_info.get("wazuh_rule_id") or (str(tmpl.get("wazuh_rule_id")) if tmpl else None) or '100499'
     report_id = body_data.get("report_id") or f"CS-RPT-{int(sys.argv[1]) if len(sys.argv) > 1 else 'GEN'}"
     
@@ -455,6 +451,8 @@ def main():
         "LOW": {"bg": "#00cc33", "fg": "#ffffff", "text": "RIESGO BAJO -- Mejora de seguridad recomendada"}
     }
     r_info = risk_colors.get(riesgo, risk_colors["MEDIUM"])
+    if not is_success and riesgo == "LOW":
+        r_info = {"bg": "#00cc33", "fg": "#ffffff", "text": "RIESGO BAJO / MITIGADO -- Intento de ataque bloqueado por el objetivo"}
 
     badge_style = ParagraphStyle(
         'RiskBadgeText',

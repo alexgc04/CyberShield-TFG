@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Terminal, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import BorderGlow from "@/components/BorderGlow";
+import Threads from "@/components/Threads";
 
 const CanvasBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -220,13 +222,27 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden select-none bg-[#0a0a0a]">
-      {/* Dynamic Constellation and Matrix Backdrop */}
-      <CanvasBackground />
+      {/* Threads WebGL Background */}
+      <div className="absolute inset-0 z-0 opacity-40">
+        <Threads amplitude={2.5} distance={0.3} enableMouseInteraction={true} />
+      </div>
       <div className="absolute inset-0 scanline pointer-events-none z-10" />
       <div className="absolute w-full h-px bg-primary/30 animate-scan-line z-0" />
 
       {/* Cyberpunk card container with animated rotating border glow */}
-      <Card className="w-full max-w-md mx-4 border-2 bg-black/80 backdrop-blur-xl glow-green relative z-20 animate-border-glow-rotate">
+      <BorderGlow
+        edgeSensitivity={25}
+        glowColor="142 84 39"
+        backgroundColor="rgba(0, 0, 0, 0.85)"
+        borderRadius={16}
+        glowRadius={40}
+        glowIntensity={1.5}
+        coneSpread={30}
+        animated={true}
+        colors={['#00FF41', '#00CC33', '#004411']}
+        className="w-full max-w-md mx-4 z-20 relative backdrop-blur-xl"
+      >
+        <Card className="border-0 bg-transparent shadow-none w-full">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto flex items-center justify-center w-16 h-16 rounded-full border-2 border-primary/50 glow-green-strong">
             <Shield className="w-8 h-8 text-primary" />
@@ -252,7 +268,7 @@ const Login = () => {
                 value={identifier}
                 onChange={(e) => { setError(''); setIdentifier(e.target.value); }}
                 required
-                className="bg-background/50 border-primary/30 focus:border-primary focus:glow-green font-mono text-sm placeholder:text-[#00ff41]/30 text-[#00ff41]"
+                className="bg-background/50 border-border focus:border-primary font-mono text-sm placeholder:text-muted-foreground/30 text-foreground"
               />
             </div>
 
@@ -273,7 +289,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => { setError(''); setPassword(e.target.value); }}
                   required
-                  className="bg-background/50 border-primary/30 focus:border-primary font-mono text-sm pr-10 text-[#00ff41]"
+                  className="bg-background/50 border-border focus:border-primary font-mono text-sm pr-10 text-foreground"
                 />
                 <button
                   type="button"
@@ -305,7 +321,7 @@ const Login = () => {
                 ["--x" as any]: `${btnCoords.x}px`,
                 ["--y" as any]: `${btnCoords.y}px`
               }}
-              className="w-full bg-[#00ff41] text-black hover:bg-[#00ff41]/80 glow-green font-mono uppercase tracking-widest text-xs h-11 relative overflow-hidden transition-all duration-300 before:content-[''] before:absolute before:top-[var(--y)] before:left-[var(--x)] before:w-0 before:h-0 before:bg-white/25 before:rounded-full before:transform before:-translate-x-1/2 before:-translate-y-1/2 hover:before:w-80 hover:before:h-80 before:transition-all before:duration-700"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/80 glow-green font-mono uppercase tracking-widest text-xs h-11 relative overflow-hidden transition-all duration-300 before:content-[''] before:absolute before:top-[var(--y)] before:left-[var(--x)] before:w-0 before:h-0 before:bg-white/25 before:rounded-full before:transform before:-translate-x-1/2 before:-translate-y-1/2 hover:before:w-80 hover:before:h-80 before:transition-all before:duration-700"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -359,11 +375,12 @@ const Login = () => {
 
           <div className="mt-4 pt-4 border-t border-border/50 text-center">
             <p className="text-xs text-muted-foreground/50 font-mono">
-              v2.4.1 // Sistema de Hacking Ético
+              v1.0.0-TFG // Sistema de Hacking Ético
             </p>
           </div>
         </CardContent>
       </Card>
+      </BorderGlow>
     </div>
   );
 };

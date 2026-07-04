@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Shield, LayoutDashboard, Swords, ShieldCheck, LogOut, Terminal, Bug, Wifi, Activity, UserX, FileText
 } from "lucide-react";
@@ -9,6 +9,8 @@ import {
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
+import ShinyText from "@/components/ShinyText";
+import BorderGlow from "@/components/BorderGlow";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -18,12 +20,45 @@ const mainItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  interface UserProfile {
+    username: string;
+    email: string;
+    role: string;
+  }
+
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [nodesActive, setNodesActive] = useState({ kali: false, wazuh: false });
+
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.user) {
+          setUser(data.user);
+        }
+      })
+      .catch(e => console.error("Error loading user profile in sidebar:", e));
+
+    fetch("/api/health", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.services) {
+          const customWazuhConnected = localStorage.getItem("wazuh_connected") === "true";
+          setNodesActive({
+            kali: data.services.kali,
+            wazuh: customWazuhConnected || data.services.wazuh
+          });
+        }
+      })
+      .catch(e => console.error("Error loading health in sidebar:", e));
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -60,10 +95,14 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div>
-              <h2 className="text-sm font-bold text-primary font-mono tracking-wider text-glow-green">
-                CYBERSHIELD
-              </h2>
-              <p className="text-[10px] text-muted-foreground font-mono">PRO v2.4.1</p>
+              <ShinyText
+                text="CYBERSHIELD"
+                speed={3.5}
+                color="#00FF41"
+                shineColor="#ffffff"
+                className="text-sm font-bold font-mono tracking-wider text-glow-green block"
+              />
+              <p className="text-[10px] text-primary/80 font-mono tracking-wider font-bold">v1.0.0-TFG</p>
             </div>
           )}
         </div>
@@ -85,6 +124,11 @@ export function AppSidebar() {
                       end
                       className="hover:bg-primary/10 transition-all duration-200"
                       activeClassName="bg-primary/15 text-primary glow-green border-l-2 border-primary"
+                      onClick={() => {
+                        if (isMobile) {
+                          setOpenMobile(false);
+                        }
+                      }}
                     >
                       <item.icon className="mr-2 h-4 w-4" />
                       {!collapsed && <span className="font-medium text-sm">{item.title}</span>}
@@ -99,24 +143,39 @@ export function AppSidebar() {
         {!collapsed && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-muted-foreground font-mono text-[10px] uppercase tracking-widest">
-              Estado del Sistema
+              Perfil de Auditor
             </SidebarGroupLabel>
-            <SidebarGroupContent className="px-3 space-y-2">
-              <div className="flex items-center gap-2 text-xs font-mono">
-                <Activity className="w-3 h-3 text-neon-green animate-pulse" />
-                <span className="text-muted-foreground">Firewalls: </span>
-                <span className="text-neon-green">ACTIVOS</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-mono">
-                <Bug className="w-3 h-3 text-neon-cyan" />
-                <span className="text-muted-foreground">Escaneos: </span>
-                <span className="text-neon-cyan">3 hoy</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs font-mono">
-                <Wifi className="w-3 h-3 text-neon-green" />
-                <span className="text-muted-foreground">Red: </span>
-                <span className="text-neon-green">SEGURA</span>
-              </div>
+            <SidebarGroupContent className="px-3 py-1 space-y-3">
+              {user ? (
+                <div className="space-y-1.5 animate-fade-slide-up">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-foreground truncate">
+                      👤 {user.username}
+                    </span>
+                    <span className="text-[10px] text-primary/80 uppercase font-bold font-mono tracking-wider">
+                      {user.role === "admin" ? "🛡️ Administrador" : "🔍 Analista TFG"}
+                    </span>
+                  </div>
+                  <div className="pt-1.5 border-t border-border/30 space-y-1 text-[10px] font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500">Kali Node:</span>
+                      <span className={nodesActive.kali ? "text-primary font-bold" : "text-destructive font-bold"}>
+                        {nodesActive.kali ? "ONLINE" : "OFFLINE"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-500">Wazuh SIEM:</span>
+                      <span className={nodesActive.wazuh ? "text-primary font-bold" : "text-destructive font-bold"}>
+                        {nodesActive.wazuh ? "ONLINE" : "OFFLINE"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-[10px] text-muted-foreground font-mono">
+                  Cargando credenciales...
+                </div>
+              )}
             </SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -125,30 +184,43 @@ export function AppSidebar() {
       <SidebarFooter className="p-3 space-y-1">
         {/* Modal de confirmación para darse de baja */}
         {showDeleteConfirm && !collapsed && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 mb-2 space-y-2">
-            <p className="text-xs text-destructive font-mono font-bold">
-              ⚠️ ¿SEGURO?
-            </p>
-            <p className="text-[10px] text-muted-foreground font-mono">
-              Tu cuenta y todos tus datos se borrarán permanentemente.
-            </p>
-            <div className="flex gap-2">
-              <button
-                id="btn-delete-account-confirm"
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="flex-1 px-2 py-1.5 text-[10px] font-mono font-bold bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 transition-colors disabled:opacity-50"
-              >
-                {deleting ? "BORRANDO..." : "SÍ, ELIMINAR"}
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-2 py-1.5 text-[10px] font-mono text-muted-foreground border border-border/50 rounded hover:bg-muted/20 transition-colors"
-              >
-                CANCELAR
-              </button>
+          <BorderGlow
+            edgeSensitivity={30}
+            glowColor="239 68 68"
+            backgroundColor="rgba(10, 10, 10, 0.95)"
+            borderRadius={8}
+            glowRadius={30}
+            glowIntensity={1.5}
+            coneSpread={40}
+            animated={true}
+            colors={['#ef4444', '#f97316', '#7f1d1d']}
+            className="mb-2 z-20 relative"
+          >
+            <div className="p-3 space-y-2">
+              <p className="text-xs text-destructive font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                <span>⚠️</span> ¿SEGURO?
+              </p>
+              <p className="text-[10px] text-zinc-400 font-mono leading-normal">
+                Tu cuenta y todos tus datos se borrarán permanentemente del sistema.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  id="btn-delete-account-confirm"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-mono font-bold bg-destructive text-destructive-foreground rounded hover:bg-destructive/80 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? "BORRANDO..." : "SÍ, ELIMINAR"}
+                </button>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-2 py-1.5 text-[10px] font-mono text-muted-foreground border border-border/50 rounded hover:bg-muted/20 transition-colors"
+                >
+                  CANCELAR
+                </button>
+              </div>
             </div>
-          </div>
+          </BorderGlow>
         )}
 
         <SidebarMenu>

@@ -88,9 +88,9 @@ export default function CustomCursor() {
           }}
           className="absolute w-4 h-4"
         >
-          <div className="absolute top-1/2 left-0 w-4 h-0.5 bg-[#00ff41] -translate-y-1/2" />
+          <div className="absolute top-1/2 left-0 w-4 h-0.5 bg-primary -translate-y-1/2" />
           <div className="absolute left-1/2 top-0 w-0.5 h-4 -translate-x-1/2" />
-          <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 border border-[#00ff41] rounded-full -translate-x-1/2 -translate-y-1/2 bg-black" />
+          <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 border border-primary rounded-full -translate-x-1/2 -translate-y-1/2 bg-black" />
         </div>
       ) : (
         /* 2. Hollow Circle Pointer over clickables */
@@ -100,7 +100,7 @@ export default function CustomCursor() {
             top: `${position.y}px`,
             transform: "translate(-50%, -50%) scale(1)",
           }}
-          className="absolute w-2 h-2 rounded-full bg-[#00ff41] shadow-[0_0_8px_#00ff41]"
+          className="absolute w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]"
         />
       )}
 
@@ -112,9 +112,9 @@ export default function CustomCursor() {
           transform: isHoveringClickable ? "translate(-50%, -50%) scale(1.6)" : "translate(-50%, -50%) scale(1)",
           opacity: isHoveringClickable ? 0.8 : 0.45,
           transition: "transform 0.2s ease, opacity 0.2s ease",
-          border: "1.5px solid #00ff41"
+          border: "1.5px solid hsl(var(--primary))"
         }}
-        className="absolute w-6 h-6 rounded-full shadow-[0_0_6px_rgba(0,255,65,0.2)]"
+        className="absolute w-6 h-6 rounded-full shadow-[0_0_6px_hsl(var(--primary)/0.2)]"
       />
 
       {/* 4. Click impact ripple effect */}
@@ -125,7 +125,7 @@ export default function CustomCursor() {
             top: `${clickWave.y}px`,
             animation: "click-impact-wave 0.4s ease-out forwards"
           }}
-          className="absolute w-2 h-2 rounded-full border-2 border-[#00ff41] pointer-events-none"
+          className="absolute w-2 h-2 rounded-full border-2 border-primary pointer-events-none"
         />
       )}
 

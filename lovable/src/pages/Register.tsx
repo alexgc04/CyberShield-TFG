@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, Terminal, Eye, EyeOff, CheckCircle } from "lucide-react";
+import BorderGlow from "@/components/BorderGlow";
+import Threads from "@/components/Threads";
 
 const Register = () => {
   const [username, setUsername] = useState("");
@@ -89,23 +91,27 @@ const Register = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background Image (Hacker) */}
-      <div
-        className="absolute inset-0 bg-cover bg-center opacity-20 bg-fixed scale-110 animate-slow-push-in"
-        style={{ backgroundImage: "url('/images/hacker.png')" }}
-      />
-      <div className="absolute inset-0 scanline pointer-events-none z-10" />
-
-      <div className="absolute inset-0 opacity-5">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `linear-gradient(hsl(var(--primary) / 0.1) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.1) 1px, transparent 1px)`,
-          backgroundSize: '40px 40px'
-        }} />
+      {/* Threads WebGL Background */}
+      <div className="absolute inset-0 z-0 opacity-40">
+        <Threads amplitude={2.5} distance={0.3} enableMouseInteraction={true} />
       </div>
+      <div className="absolute inset-0 scanline pointer-events-none z-10" />
 
       <div className="absolute w-full h-px bg-primary/30 animate-scan-line z-0" />
 
-      <Card className="w-full max-w-md mx-4 border-primary/20 bg-card/80 backdrop-blur-xl glow-green relative z-20">
+      <BorderGlow
+        edgeSensitivity={25}
+        glowColor="142 84 39"
+        backgroundColor="rgba(0, 0, 0, 0.85)"
+        borderRadius={16}
+        glowRadius={40}
+        glowIntensity={1.5}
+        coneSpread={30}
+        animated={true}
+        colors={['#00FF41', '#00CC33', '#004411']}
+        className="w-full max-w-md mx-4 z-20 relative backdrop-blur-xl"
+      >
+        <Card className="border-0 bg-transparent shadow-none w-full">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto flex items-center justify-center w-16 h-16 rounded-full border-2 border-primary/50 glow-green-strong">
             <Shield className="w-8 h-8 text-primary" />
@@ -272,11 +278,12 @@ const Register = () => {
 
           <div className="mt-4 pt-4 border-t border-border/50 text-center">
             <p className="text-xs text-muted-foreground/50 font-mono">
-              v2.4.1 // Sistema de Hacking Ético
+              v1.0.0-TFG // Sistema de Hacking Ético
             </p>
           </div>
         </CardContent>
       </Card>
+      </BorderGlow>
     </div>
   );
 };

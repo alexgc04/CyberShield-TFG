@@ -7,6 +7,9 @@ import {
   Maximize2, Minimize2, Search, Trash2
 } from "lucide-react";
 import AttackModule from "@/components/AttackModule";
+import DecryptedText from "@/components/DecryptedText";
+import Shuffle from "@/components/Shuffle";
+import Radar from "@/components/Radar";
 
 interface AttackParameter {
   name: string;
@@ -78,13 +81,26 @@ const TypewriterTerminalLine = ({ line, isLast }: { line: TerminalLine; isLast: 
   else if (line.type === "system") textClass = "text-muted-foreground/50";
 
   const isError = line.type === "error";
+  const isOutput = line.type === "output";
 
   return (
     <div className={`leading-relaxed break-all ${isError ? "animate-terminal-shake" : ""}`}>
-      <span className={textClass}>
-        {displayedText}
-        {isTyping && <span className="animate-terminal-blink text-[#00ff41] ml-0.5">█</span>}
-      </span>
+      {isOutput && isLast ? (
+        <DecryptedText
+          text={line.text}
+          animateOn="view"
+          speed={10}
+          maxIterations={6}
+          parentClassName={textClass}
+          className="text-primary font-bold"
+          encryptedClassName="text-primary/45 font-mono"
+        />
+      ) : (
+        <span className={textClass}>
+          {displayedText}
+          {isTyping && <span className="animate-terminal-blink text-[#00ff41] ml-0.5">█</span>}
+        </span>
+      )}
       {line.link && !isTyping && (
         <a
           href={line.link.url}
@@ -106,14 +122,14 @@ export default function Offensive() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
   const [terminalInput, setTerminalInput] = useState("");
-  const [kaliIp, setKaliIp] = useState<string>("10.10.10.21");
+  const [kaliIp, setKaliIp] = useState<string>("192.168.1.150");
   const [wazuhIp, setWazuhIp] = useState<string>("10.10.10.49");
   
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
     { text: "========================================================================", type: "system" },
     { text: "🛡️ CYBERSHIELD ADVANCED ATTACK SIMULATOR (CLI SESSION ACTIVE)", type: "success" },
     { text: "========================================================================", type: "system" },
-    { text: "Host: kali-linux-attack-node (10.10.10.21)", type: "info" },
+    { text: "Host: kali-linux-attack-node (192.168.1.150)", type: "info" },
     { text: "Status: Connected via SSH (Port 22)", type: "info" },
     { text: "Wazuh Manager: Active (10.10.10.49)", type: "info" },
     { text: "", type: "info" },
@@ -127,7 +143,7 @@ export default function Offensive() {
 
   useEffect(() => {
     // Fetch templates
-    fetch("/api/attacks/templates")
+    fetch("/api/attacks/templates", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.templates) {
@@ -151,7 +167,7 @@ export default function Offensive() {
       .catch((err) => console.error("Error fetching templates:", err));
 
     // Fetch dynamic IP config from health endpoint
-    fetch("/api/health")
+    fetch("/api/health", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
@@ -235,6 +251,7 @@ export default function Offensive() {
       fetch("/api/ssh/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ command: cmd })
       })
         .then((res) => {
@@ -302,14 +319,34 @@ export default function Offensive() {
 
   return (
     <div className="relative pb-12 font-mono">
-      <div className="fixed inset-0 bg-cover bg-center opacity-20 pointer-events-none z-0" style={{ backgroundImage: "url('/images/nodes.png')" }} />
+      <div className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none z-0" style={{ backgroundImage: "url('/images/nodes.png')" }} />
+      <div className="absolute inset-0 pointer-events-none z-[1] opacity-[0.35]">
+        <Radar
+          speed={0.8}
+          scale={0.65}
+          ringCount={8}
+          spokeCount={12}
+          ringThickness={0.03}
+          spokeThickness={0.005}
+          sweepSpeed={1.0}
+          sweepWidth={3.0}
+          sweepLobes={1}
+          color="#ff3b30"
+          backgroundColor="#000000"
+          falloff={1.5}
+          brightness={1.0}
+          enableMouseInteraction={true}
+          mouseInfluence={0.08}
+        />
+      </div>
       <div className="space-y-6 relative z-10">
         
         {/* Header con indicadores de estado */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/30 pb-4">
           <div>
             <h1 className="text-2xl font-bold font-mono text-primary text-glow-green tracking-wider flex items-center gap-2">
-              <Crosshair className="w-6 h-6 animate-pulse" /> MÓDULOS OFENSIVOS
+              <Crosshair className="w-6 h-6 animate-pulse" /> 
+              <Shuffle text="MÓDULOS OFENSIVOS" className="text-2xl font-bold font-mono text-primary text-glow-green tracking-wider" triggerOnHover={true} />
             </h1>
             <p className="text-xs text-muted-foreground font-mono mt-1">
               Catálogo de intrusiones · ejecución ssh · inyección Wazuh interactiva
@@ -394,86 +431,7 @@ export default function Offensive() {
           </div>
         )}
 
-        {/* Consola Terminal al Pie de Página */}
-        <div 
-          id="terminal-console" 
-          className={`bg-black/95 rounded-xl border border-primary/20 backdrop-blur-xl flex flex-col transition-all duration-300 overflow-hidden ${
-            isTerminalExpanded ? "h-[500px]" : "h-72"
-          }`}
-        >
-          {/* Header de Terminal */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-primary/20 bg-muted/5 select-none font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <TerminalIcon className="w-3.5 h-3.5 text-primary" />
-              <span className="text-xs text-primary font-bold tracking-widest uppercase">
-                Consola Linux Kali @ {kaliIp}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setTerminalLines([
-                  { text: "Virtual Terminal v1.0.0-TFG initialized. Connected to Kali.", type: "info" }
-                ])}
-                title="Limpiar Consola"
-                className="p-1 rounded hover:bg-muted/10 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => {
-                  setTerminalLines(prev => [
-                    ...prev,
-                    { text: "cybershield@kali:~$ help", type: "command" },
-                    { text: "Comandos Disponibles:", type: "info" },
-                    { text: "  help          - Muestra esta pantalla de ayuda.", type: "info" },
-                    { text: "  clear / cls   - Limpia el output de la terminal.", type: "info" },
-                    { text: "  status        - Verifica el estado del nodo atacante SSH y Wazuh.", type: "info" },
-                    { text: "  list          - Lista los módulos de ataque cargados en la base de datos.", type: "info" },
-                  ]);
-                }}
-                title="Ayuda CLI"
-                className="p-1 rounded hover:bg-muted/10 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setIsTerminalExpanded(!isTerminalExpanded)}
-                title={isTerminalExpanded ? "Minimizar" : "Maximizar"}
-                className="p-1 rounded hover:bg-muted/10 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {isTerminalExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Área de Visualización del Terminal */}
-          <div ref={terminalContainerRef} className="flex-1 p-3 overflow-y-auto font-mono text-[11px] space-y-0.5 bg-black text-foreground">
-            {terminalLines.map((line, idx) => (
-              <TypewriterTerminalLine key={idx} line={line} isLast={idx === terminalLines.length - 1} />
-            ))}
-            <div ref={terminalEndRef} />
-          </div>
-
-          {/* Formulario de Input del Terminal */}
-          <form 
-            onSubmit={handleTerminalSubmit}
-            className="flex items-center px-4 py-2 border-t border-primary/20 bg-black"
-          >
-            <span className="text-neon-green font-mono text-xs font-semibold mr-1.5 shrink-0 select-none">
-              cybershield@kali:~$
-            </span>
-            <input
-              type="text"
-              value={terminalInput}
-              onChange={(e) => setTerminalInput(e.target.value)}
-              className="flex-1 bg-transparent border-0 outline-none text-xs font-mono text-foreground focus:ring-0 p-0"
-              placeholder="Escribe un comando (ej: help, list, status)..."
-              autoFocus
-            />
-          </form>
-        </div>
+        {/* Terminal removed by request */}
 
       </div>
     </div>
