@@ -12,7 +12,6 @@ import CountUp from "@/components/CountUp";
 import SpotlightCard from "@/components/SpotlightCard";
 import Shuffle from "@/components/Shuffle";
 import Threads from "@/components/Threads";
-import ColorBends from "@/components/ColorBends";
 
 type Health = {
   mongodb: boolean;
@@ -299,23 +298,9 @@ export default function Dashboard() {
 
   return (
     <div className="relative -m-6 p-6 min-h-[calc(100vh-3rem)] bg-background text-foreground font-sans pb-12 overflow-hidden">
-      {/* Background dynamic ColorBends overlay */}
-      <div className="absolute inset-0 z-[1] opacity-[0.35] pointer-events-none">
-        <ColorBends
-          colors={["#00FF41", "#002205", "#00aa22", "#000000"]}
-          rotation={90}
-          speed={0.15}
-          scale={1.2}
-          frequency={1}
-          warpStrength={1}
-          mouseInfluence={1}
-          noise={0.1}
-          parallax={0.4}
-          iterations={1}
-          intensity={1.2}
-          bandWidth={5}
-          transparent
-        />
+      {/* Background dynamic Threads overlay */}
+      <div className="absolute inset-0 z-[1] opacity-[0.12] pointer-events-none">
+        <Threads color={[0.0, 0.45, 0.12]} amplitude={1.8} distance={0.25} enableMouseInteraction={true} />
       </div>
       
       <div className="relative z-10 space-y-6">

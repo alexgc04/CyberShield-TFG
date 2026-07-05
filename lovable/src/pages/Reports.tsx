@@ -10,6 +10,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import SpotlightCard from "@/components/SpotlightCard";
 import Shuffle from "@/components/Shuffle";
+import Threads from "@/components/Threads";
 
 interface AttackLog {
   _id: string;
