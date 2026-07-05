@@ -109,7 +109,7 @@ Se inyectan de forma dirigida los parámetros dinámicos en los formularios de l
   4. Verifica en la terminal SSH embebida de la consola que se inicia el buffer de logs en tiempo real y que el orquestador n8n recibe el webhook JSON y ejecuta con éxito el comando correspondiente en la máquina Kali Linux (`192.168.1.150`).
 
 - **Paso B: Recolección y Exposición en Wazuh**:
-  1. El logger de n8n enviará el log de auditoría al Wazuh Manager (`10.10.10.49`).
+  1. El logger de n8n enviará el log de auditoría al Wazuh Manager.
   2. Accede a la pestaña defensiva (`/defensive`) de la aplicación.
   3. Corrobora de forma física y manual que el agente de Wazuh en producción recolecta los eventos de seguridad y la API expone la alerta de manera pasiva (mapeada a las reglas `100500-100513` de `local_rules.xml`).
 
