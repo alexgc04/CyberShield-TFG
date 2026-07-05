@@ -60,15 +60,15 @@ graph TD
 ### 1. Configuración de Variables de Entorno (`.env`)
 Crea un archivo `.env` en la raíz del proyecto basándote en [.env.example](file:///c:/Users/Alex%20gc/Desktop/CyberShield/.env.example):
 ```bash
-MONGODB_URI=mongodb://localhost:27017/cybershield
+MONGODB_URI=mongodb://...
 JWT_SECRET=tu_jwt_secret_aqui
 SESSION_SECRET=tu_session_secret_aqui
 PORT=3001
-SSH_HOST=192.168.1.150
-SSH_USER=kali
-SSH_PASS=kali
-WAZUH_API_URL=https://10.10.10.49:55000
-WAZUH_USER=admin
+SSH_HOST=192.168...
+SSH_USER=...
+SSH_PASS=...
+WAZUH_API_URL=https://IP:55000
+WAZUH_USER=...
 WAZUH_PASS=tu_password_wazuh
 ```
 
