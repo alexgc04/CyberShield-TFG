@@ -1,101 +1,131 @@
 <mxfile host="Electron" modified="2026-07-03T16:00:00.000Z" agent="Mozilla/5.0" etag="cybershield-usecase" version="21.0.0" type="device">
   <diagram id="usecase-page" name="Casos de Uso - CyberShield">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0" background="#ffffff">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         
         <!-- System Boundary Box -->
-        <mxCell id="sys-boundary" value="Sistema CyberShield Pro" style="shape=rect;html=1;verticalAlign=top;align=left;spacingLeft=10;fillColor=#141414;strokeColor=#00FF41;strokeWidth=2;fontColor=#ffffff;fontSize=14;fontStyle=1" vertex="1" parent="1">
+        <mxCell id="sys-boundary" value="Sistema CyberShield Pro" style="shape=rect;html=1;verticalAlign=top;align=left;spacingLeft=10;fillColor=#fafafa;strokeColor=#0288d1;strokeWidth=2;fontColor=#000000;fontSize=14;fontStyle=1" vertex="1" parent="1">
           <mxGeometry x="190" y="80" width="450" height="740" as="geometry" />
         </mxCell>
         
         <!-- Actor: Auditor -->
-        <mxCell id="actor-auditor" value="Auditor / Analista&lt;br&gt;(TFG)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#00FF41;fillColor=#000000;fontColor=#ffffff;strokeWidth=1.5" vertex="1" parent="1">
+        <mxCell id="actor-auditor" value="Auditor / Analista" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#008000;fillColor=#e6f9e6;fontColor=#000000;strokeWidth=1.5" vertex="1" parent="1">
           <mxGeometry x="70" y="320" width="40" height="80" as="geometry" />
         </mxCell>
         
         <!-- Actor: n8n -->
-        <mxCell id="actor-n8n" value="Orquestador&lt;br&gt;n8n" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#af52de;fillColor=#000000;fontColor=#ffffff;strokeWidth=1.5" vertex="1" parent="1">
+        <mxCell id="actor-n8n" value="Orquestador n8n" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#722ed1;fillColor=#f9f0ff;fontColor=#000000;strokeWidth=1.5" vertex="1" parent="1">
           <mxGeometry x="710" y="160" width="40" height="80" as="geometry" />
         </mxCell>
         
         <!-- Actor: Kali -->
-        <mxCell id="actor-kali" value="Nodo Kali Linux&lt;br&gt;(Ofensivo)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#ff3b30;fillColor=#000000;fontColor=#ffffff;strokeWidth=1.5" vertex="1" parent="1">
+        <mxCell id="actor-kali" value="Nodo Kali Linux (Ofensivo)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#a8071a;fillColor=#fff1f0;fontColor=#000000;strokeWidth=1.5" vertex="1" parent="1">
           <mxGeometry x="710" y="360" width="40" height="80" as="geometry" />
         </mxCell>
         
         <!-- Actor: Wazuh -->
-        <mxCell id="actor-wazuh" value="SIEM Wazuh&lt;br&gt;(Defensivo)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#00c7ff;fillColor=#000000;fontColor=#ffffff;strokeWidth=1.5" vertex="1" parent="1">
+        <mxCell id="actor-wazuh" value="SIEM Wazuh (Defensivo)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeColor=#0050b3;fillColor=#e6f7ff;fontColor=#000000;strokeWidth=1.5" vertex="1" parent="1">
           <mxGeometry x="710" y="580" width="40" height="80" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Autenticarse -->
-        <mxCell id="uc-login" value="Autenticarse en la&lt;br&gt;Consola Web" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12" vertex="1" parent="1">
+        <mxCell id="uc-login" value="Autenticarse en la&#xa;Consola Web" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12" vertex="1" parent="1">
           <mxGeometry x="240" y="120" width="140" height="70" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Configurar Enlace SIEM -->
-        <mxCell id="uc-handshake" value="Vincular Servidor&lt;br&gt;Wazuh (Handshake)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12" vertex="1" parent="1">
+        <mxCell id="uc-handshake" value="Vincular Servidor&#xa;Wazuh (Handshake)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12" vertex="1" parent="1">
           <mxGeometry x="240" y="220" width="140" height="70" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Lanzar Simulacion -->
-        <mxCell id="uc-run-attack" value="Lanzar Simulación&lt;br&gt;de Ataque" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12;fontStyle=1" vertex="1" parent="1">
+        <mxCell id="uc-run-attack" value="Lanzar Simulación&#xa;de Ataque" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12;fontStyle=1" vertex="1" parent="1">
           <mxGeometry x="240" y="340" width="150" height="80" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Monitorear Health -->
-        <mxCell id="uc-monitor" value="Monitorear Estado&lt;br&gt;de la Infraestructura" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12" vertex="1" parent="1">
+        <mxCell id="uc-monitor" value="Monitorear Estado&#xa;de la Infraestructura" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12" vertex="1" parent="1">
           <mxGeometry x="240" y="460" width="140" height="70" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Visualizar Alertas -->
-        <mxCell id="uc-alerts" value="Visualizar Alertas&lt;br&gt;SIEM Wazuh" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12" vertex="1" parent="1">
+        <mxCell id="uc-alerts" value="Visualizar Alertas&#xa;SIEM Wazuh" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12" vertex="1" parent="1">
           <mxGeometry x="240" y="570" width="140" height="70" as="geometry" />
         </mxCell>
         
         <!-- Use Case: Reporte PDF -->
-        <mxCell id="uc-report" value="Generar Reporte&lt;br&gt;Técnico en PDF" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#00FF41;fillColor=#242424;fontColor=#ffffff;fontSize=12" vertex="1" parent="1">
+        <mxCell id="uc-report" value="Generar Reporte&#xa;Técnico en PDF" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#008000;fillColor=#f6ffed;fontColor=#000000;fontSize=12" vertex="1" parent="1">
           <mxGeometry x="240" y="680" width="140" height="70" as="geometry" />
         </mxCell>
         
         <!-- Sub Use Case: Ataques Capa 2 -->
-        <mxCell id="uc-capa2" value="Simular Ataques LAN&lt;br&gt;(ARP / DHCP / CAM)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#ff3b30;fillColor=#242424;fontColor=#ffffff;fontSize=11" vertex="1" parent="1">
+        <mxCell id="uc-capa2" value="Simular Ataques LAN&#xa;(ARP / DHCP / CAM)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#a8071a;fillColor=#fff1f0;fontColor=#000000;fontSize=11" vertex="1" parent="1">
           <mxGeometry x="460" y="270" width="140" height="60" as="geometry" />
         </mxCell>
         
         <!-- Sub Use Case: Scapy -->
-        <mxCell id="uc-scapy" value="Inyección de Paquetes&lt;br&gt;(Scapy Engine)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#ff3b30;fillColor=#242424;fontColor=#ffffff;fontSize=11" vertex="1" parent="1">
+        <mxCell id="uc-scapy" value="Inyección de Paquetes&#xa;(Scapy Engine)" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#a8071a;fillColor=#fff1f0;fontColor=#000000;fontSize=11" vertex="1" parent="1">
           <mxGeometry x="460" y="350" width="140" height="60" as="geometry" />
         </mxCell>
         
         <!-- Sub Use Case: SSH brute force -->
-        <mxCell id="uc-ssh" value="Fuerza Bruta SSH /&lt;br&gt;Escalada Privilegios" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#ff3b30;fillColor=#242424;fontColor=#ffffff;fontSize=11" vertex="1" parent="1">
+        <mxCell id="uc-ssh" value="Fuerza Bruta SSH /&#xa;Escalada Privilegios" style="ellipse;whiteSpace=wrap;html=1;strokeColor=#a8071a;fillColor=#fff1f0;fontColor=#000000;fontSize=11" vertex="1" parent="1">
           <mxGeometry x="460" y="430" width="140" height="60" as="geometry" />
         </mxCell>
         
         <!-- Associations: Auditor -->
-        <mxCell id="edge-auditor-login" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-login" />
-        <mxCell id="edge-auditor-handshake" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-handshake" />
-        <mxCell id="edge-auditor-run" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-run-attack" />
-        <mxCell id="edge-auditor-monitor" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-monitor" />
-        <mxCell id="edge-auditor-alerts" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-alerts" />
-        <mxCell id="edge-auditor-report" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00FF41;strokeWidth=1.5" edge="1" parent="1" source="actor-auditor" target="uc-report" />
+        <mxCell id="edge-auditor-login" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-login">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-auditor-handshake" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-handshake">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-auditor-run" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-run-attack">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-auditor-monitor" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-monitor">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-auditor-alerts" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-alerts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-auditor-report" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#333333;strokeWidth=1.5;fontColor=#000000" edge="1" parent="1" source="actor-auditor" target="uc-report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         
         <!-- Generalizations / Includes -->
-        <mxCell id="edge-run-capa2" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#cccccc;fontSize=10;fontColor=#cccccc" edge="1" parent="1" source="uc-capa2" target="uc-run-attack" />
-        <mxCell id="edge-run-scapy" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#cccccc;fontSize=10;fontColor=#cccccc" edge="1" parent="1" source="uc-scapy" target="uc-run-attack" />
-        <mxCell id="edge-run-ssh" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#cccccc;fontSize=10;fontColor=#cccccc" edge="1" parent="1" source="uc-ssh" target="uc-run-attack" />
+        <mxCell id="edge-run-capa2" value="&lt;&lt;extend&gt;&gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#666666;fontSize=10;fontColor=#555555" edge="1" parent="1" source="uc-capa2" target="uc-run-attack">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-run-scapy" value="&lt;&lt;extend&gt;&gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#666666;fontSize=10;fontColor=#555555" edge="1" parent="1" source="uc-scapy" target="uc-run-attack">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-run-ssh" value="&lt;&lt;extend&gt;&gt;" style="edgeStyle=none;html=1;endArrow=open;dashed=1;strokeColor=#666666;fontSize=10;fontColor=#555555" edge="1" parent="1" source="uc-ssh" target="uc-run-attack">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         
         <!-- Associations: Backend / Systems -->
-        <mxCell id="edge-n8n-run" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#af52de;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="uc-run-attack" target="actor-n8n" />
-        <mxCell id="edge-kali-attacks" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#ff3b30;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="actor-kali" target="uc-capa2" />
-        <mxCell id="edge-kali-scapy" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#ff3b30;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="actor-kali" target="uc-scapy" />
-        <mxCell id="edge-kali-ssh" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#ff3b30;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="actor-kali" target="uc-ssh" />
+        <mxCell id="edge-n8n-run" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#722ed1;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="uc-run-attack" target="actor-n8n">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-kali-attacks" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#a8071a;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="actor-kali" target="uc-capa2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-kali-scapy" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#a8071a;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="actor-kali" target="uc-scapy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-kali-ssh" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#a8071a;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="actor-kali" target="uc-ssh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         
-        <mxCell id="edge-wazuh-alerts" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00c7ff;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="uc-alerts" target="actor-wazuh" />
-        <mxCell id="edge-wazuh-handshake" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#00c7ff;strokeWidth=1.5;dashed=1" edge="1" parent="1" source="uc-handshake" target="actor-wazuh" />
+        <mxCell id="edge-wazuh-alerts" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#0050b3;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="uc-alerts" target="actor-wazuh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-wazuh-handshake" style="edgeStyle=none;html=1;endArrow=none;strokeColor=#0050b3;strokeWidth=1.5;dashed=1;fontColor=#000000" edge="1" parent="1" source="uc-handshake" target="actor-wazuh">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
