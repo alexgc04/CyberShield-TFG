@@ -5,33 +5,33 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         
-        <!-- Class: User -->
-        <mxCell id="class-user" value="User (MongoDB Collection)&lt;br&gt;&lt;hr&gt;- id: ObjectId&lt;br&gt;- username: String&lt;br&gt;- email: String&lt;br&gt;- password_hash: String&lt;br&gt;- role: String&lt;br&gt;- active: Boolean&lt;br&gt;- failed_attempts: Number&lt;br&gt;- locked_until: Date&lt;br&gt;- created_at: Date&lt;br&gt;&lt;hr&gt;+ register(): Promise&lt;br&gt;+ login(): Promise&lt;br&gt;+ deleteAccount(): Promise" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f9e6;strokeColor=#008000;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: User (Usuario) -->
+        <mxCell id="class-user" value="Usuario (Colección MongoDB)&lt;br&gt;&lt;hr&gt;- id: ObjectId&lt;br&gt;- username: String&lt;br&gt;- email: String&lt;br&gt;- password_hash: String&lt;br&gt;- role: String&lt;br&gt;- active: Boolean&lt;br&gt;- failed_attempts: Number&lt;br&gt;- locked_until: Date&lt;br&gt;- created_at: Date&lt;br&gt;&lt;hr&gt;+ registrar(): Promesa&lt;br&gt;+ iniciarSesion(): Promesa&lt;br&gt;+ eliminarCuenta(): Promesa" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f9e6;strokeColor=#008000;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="50" y="80" width="220" height="170" as="geometry" />
         </mxCell>
         
-        <!-- Class: AttackTemplate -->
-        <mxCell id="class-template" value="AttackTemplate (MongoDB)&lt;br&gt;&lt;hr&gt;- id: String (MODxx)&lt;br&gt;- name: String&lt;br&gt;- module: String&lt;br&gt;- mitre_id: String&lt;br&gt;- risk_level: String&lt;br&gt;- command: String&lt;br&gt;- parameters: Array&lt;br&gt;- logger_command: String&lt;br&gt;&lt;hr&gt;+ findById(id): Template&lt;br&gt;+ findAll(): Array&lt;br&gt;+ validateParams(inputs): Boolean" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#fff1f0;strokeColor=#a8071a;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: AttackTemplate (PlantillaAtaque) -->
+        <mxCell id="class-template" value="PlantillaAtaque (MongoDB)&lt;br&gt;&lt;hr&gt;- id: String (MODxx)&lt;br&gt;- name: String&lt;br&gt;- module: String&lt;br&gt;- mitre_id: String&lt;br&gt;- risk_level: String&lt;br&gt;- command: String&lt;br&gt;- parameters: Array&lt;br&gt;- logger_command: String&lt;br&gt;&lt;hr&gt;+ buscarPorId(id): Plantilla&lt;br&gt;+ buscarTodos(): Matriz&lt;br&gt;+ validarParametros(entradas): Booleano" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#fff1f0;strokeColor=#a8071a;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="50" y="320" width="220" height="170" as="geometry" />
         </mxCell>
         
-        <!-- Class: AttackLog -->
-        <mxCell id="class-attacklog" value="AttackLog (MongoDB Collection)&lt;br&gt;&lt;hr&gt;- id: ObjectId&lt;br&gt;- attack_id: String&lt;br&gt;- attack_name: String&lt;br&gt;- company_name: String&lt;br&gt;- target_ip: String&lt;br&gt;- status: String&lt;br&gt;- timestamp: Date&lt;br&gt;- ssh_exit_code: Number&lt;br&gt;- report_id: String&lt;br&gt;- pdf_url: String&lt;br&gt;&lt;hr&gt;+ save(): Promise&lt;br&gt;+ findByCompany(name): Array&lt;br&gt;+ generatePDFReport(): Promise" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f7ff;strokeColor=#0050b3;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: AttackLog (RegistroAtaque) -->
+        <mxCell id="class-attacklog" value="RegistroAtaque (Colección MongoDB)&lt;br&gt;&lt;hr&gt;- id: ObjectId&lt;br&gt;- attack_id: String&lt;br&gt;- attack_name: String&lt;br&gt;- company_name: String&lt;br&gt;- target_ip: String&lt;br&gt;- status: String&lt;br&gt;- timestamp: Date&lt;br&gt;- ssh_exit_code: Number&lt;br&gt;- report_id: String&lt;br&gt;- pdf_url: String&lt;br&gt;&lt;hr&gt;+ guardar(): Promesa&lt;br&gt;+ buscarPorEmpresa(nombre): Matriz&lt;br&gt;+ generarReportePDF(): Promesa" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f7ff;strokeColor=#0050b3;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="380" y="320" width="240" height="190" as="geometry" />
         </mxCell>
         
-        <!-- Class: WazuhConnection -->
-        <mxCell id="class-wazuhconn" value="WazuhConnection (SIEM Engine)&lt;br&gt;&lt;hr&gt;- indexerUrl: String&lt;br&gt;- managerUrl: String&lt;br&gt;- username: String&lt;br&gt;- status: Boolean&lt;br&gt;- localRulesXml: String&lt;br&gt;&lt;hr&gt;+ testConnection(): Boolean&lt;br&gt;+ fetchAlerts(targetIp): Array&lt;br&gt;+ getScaReport(agentId): Object&lt;br&gt;+ getFimReport(agentId): Object" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f7ff;strokeColor=#0050b3;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: WazuhConnection (ConexionWazuh) -->
+        <mxCell id="class-wazuhconn" value="ConexionWazuh (Motor SIEM)&lt;br&gt;&lt;hr&gt;- indexerUrl: String&lt;br&gt;- managerUrl: String&lt;br&gt;- username: String&lt;br&gt;- status: Boolean&lt;br&gt;- localRulesXml: String&lt;br&gt;&lt;hr&gt;+ probarConexion(): Booleano&lt;br&gt;+ obtenerAlertas(ipObjetivo): Matriz&lt;br&gt;+ obtenerReporteSCA(idAgente): Objeto&lt;br&gt;+ obtenerReporteFIM(idAgente): Objeto" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#e6f7ff;strokeColor=#0050b3;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="380" y="80" width="240" height="170" as="geometry" />
         </mxCell>
         
-        <!-- Class: SSHConnector -->
-        <mxCell id="class-ssh" value="SSHConnector (Utility)&lt;br&gt;&lt;hr&gt;- host: String&lt;br&gt;- username: String&lt;br&gt;- port: Number&lt;br&gt;&lt;hr&gt;+ connect(): Promise&lt;br&gt;+ executeCommand(cmd): Promise&lt;br&gt;+ close(): Void" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#fff7e6;strokeColor=#d46b08;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: SSHConnector (ConectorSSH) -->
+        <mxCell id="class-ssh" value="ConectorSSH (Utilidad)&lt;br&gt;&lt;hr&gt;- host: String&lt;br&gt;- username: String&lt;br&gt;- port: Number&lt;br&gt;&lt;hr&gt;+ conectar(): Promesa&lt;br&gt;+ ejecutarComando(cmd): Promesa&lt;br&gt;+ cerrar(): Vacio" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#fff7e6;strokeColor=#d46b08;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="150" y="600" width="210" height="130" as="geometry" />
         </mxCell>
         
-        <!-- Class: N8NOrchestrator -->
-        <mxCell id="class-n8n" value="N8NOrchestrator (Utility)&lt;br&gt;&lt;hr&gt;- webhookUrl: String&lt;br&gt;&lt;hr&gt;+ triggerWorkflow(data): Promise&lt;br&gt;+ handleCallback(req): Response" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#f9f0ff;strokeColor=#722ed1;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
+        <!-- Class: N8NOrchestrator (OrquestadorN8N) -->
+        <mxCell id="class-n8n" value="OrquestadorN8N (Utilidad)&lt;br&gt;&lt;hr&gt;- webhookUrl: String&lt;br&gt;&lt;hr&gt;+ dispararFlujo(datos): Promesa&lt;br&gt;+ procesarRetorno(req): Respuesta" style="shape=rect;html=1;whiteSpace=wrap;align=left;spacingLeft=8;fillColor=#f9f0ff;strokeColor=#722ed1;strokeWidth=1.5;fontColor=#000000;fontSize=10;fontFamily=monospace" vertex="1" parent="1">
           <mxGeometry x="420" y="600" width="210" height="110" as="geometry" />
         </mxCell>
         
@@ -49,6 +49,16 @@
             <mxPoint x="-10" y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="lbl-user-logs-src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-user-logs">
+          <mxGeometry x="-0.85" relative="1" as="geometry">
+            <mxPoint x="10" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-user-logs-trg" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-user-logs">
+          <mxGeometry x="0.85" relative="1" as="geometry">
+            <mxPoint x="-15" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
         
         <!-- Template - AttackLog (1 to N) -->
         <mxCell id="edge-template-log" style="edgeStyle=none;html=1;endArrow=open;endSize=8;strokeColor=#333333;fontSize=10" edge="1" parent="1" source="class-template" target="class-attacklog">
@@ -57,6 +67,16 @@
         <mxCell id="lbl-template-log" value="instancia" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-template-log">
           <mxGeometry x="-0.1" relative="1" as="geometry">
             <mxPoint y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-template-log-src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-template-log">
+          <mxGeometry x="-0.8" relative="1" as="geometry">
+            <mxPoint x="10" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-template-log-trg" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-template-log">
+          <mxGeometry x="0.8" relative="1" as="geometry">
+            <mxPoint x="-15" y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
         
@@ -69,6 +89,16 @@
             <mxPoint x="35" y="-5" as="offset" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="lbl-log-wazuh-src" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-log-wazuh">
+          <mxGeometry x="-0.8" relative="1" as="geometry">
+            <mxPoint x="10" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-log-wazuh-trg" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-log-wazuh">
+          <mxGeometry x="0.8" relative="1" as="geometry">
+            <mxPoint x="-15" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
         
         <!-- Orchestrator - SSHConnector (uses) -->
         <mxCell id="edge-n8n-ssh" style="edgeStyle=none;html=1;endArrow=open;endSize=8;strokeColor=#333333;fontSize=10" edge="1" parent="1" source="class-n8n" target="class-ssh">
@@ -77,6 +107,16 @@
         <mxCell id="lbl-n8n-ssh" value="dispara vía" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-n8n-ssh">
           <mxGeometry x="-0.1" relative="1" as="geometry">
             <mxPoint y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-n8n-ssh-src" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-n8n-ssh">
+          <mxGeometry x="-0.8" relative="1" as="geometry">
+            <mxPoint x="10" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-n8n-ssh-trg" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-n8n-ssh">
+          <mxGeometry x="0.8" relative="1" as="geometry">
+            <mxPoint x="-15" y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
         
@@ -89,6 +129,16 @@
         <mxCell id="lbl-log-n8n" value="procesado por" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-log-n8n">
           <mxGeometry x="-0.1" relative="1" as="geometry">
             <mxPoint x="45" y="10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-log-n8n-src" value="0..*" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-log-n8n">
+          <mxGeometry x="-0.8" relative="1" as="geometry">
+            <mxPoint x="10" y="-10" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-log-n8n-trg" value="1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontColor=#000000;fontSize=10;fontFamily=monospace" connectable="0" vertex="1" parent="edge-log-n8n">
+          <mxGeometry x="0.8" relative="1" as="geometry">
+            <mxPoint x="-15" y="-10" as="offset" />
           </mxGeometry>
         </mxCell>
       </root>
