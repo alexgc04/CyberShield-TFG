@@ -755,8 +755,8 @@ app.get("/api/health", async (req, res) => {
   res.json({ 
     success: true, 
     services: results,
-    kali_ip: process.env.SSH_HOST || '192.168.1.150',
-    wazuh_ip: process.env.WAZUH_HOST || '10.10.10.49'
+    kali_ip: process.env.SSH_HOST || 'No configurado',
+    wazuh_ip: process.env.WAZUH_HOST || 'No configurado'
   });
 });
 

@@ -187,7 +187,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
     setResult(null);
     setError(null);
     setProgress(5);
-    setProgressText(`Conectando al agente Kali Linux (${kaliIp || "192.168.1.150"})...`);
+    setProgressText(`Conectando al agente Kali Linux (${kaliIp || "SSH"})...`);
 
     const fCmd = getRenderedCommand();
     if (onTerminalLine) {
@@ -311,7 +311,7 @@ export default function AttackModule({ attackId, kaliIp, template: propTemplate,
       ref={cardRef}
       className="transition-all duration-300 rounded-lg overflow-hidden hover:scale-[1.015] hover:shadow-[0_0_20px_rgba(0,255,65,0.08)]"
     >
-      <Card className="border-border bg-card/40 glow-green text-foreground overflow-hidden font-sans">
+      <Card className="border border-emerald-500/30 bg-[#0a0f0a]/95 backdrop-blur-sm shadow-[0_0_15px_rgba(0,255,65,0.06)] text-foreground overflow-hidden font-sans">
       <CardHeader className="border-b border-border/40 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">

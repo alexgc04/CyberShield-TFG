@@ -122,20 +122,14 @@ export default function Offensive() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
   const [terminalInput, setTerminalInput] = useState("");
-  const [kaliIp, setKaliIp] = useState<string>("192.168.1.150");
-  const [wazuhIp, setWazuhIp] = useState<string>("10.10.10.49");
+  const [kaliIp, setKaliIp] = useState<string>("cargando...");
+  const [wazuhIp, setWazuhIp] = useState<string>("cargando...");
   
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([
     { text: "========================================================================", type: "system" },
     { text: "🛡️ CYBERSHIELD ADVANCED ATTACK SIMULATOR (CLI SESSION ACTIVE)", type: "success" },
     { text: "========================================================================", type: "system" },
-    { text: "Host: kali-linux-attack-node (192.168.1.150)", type: "info" },
-    { text: "Status: Connected via SSH (Port 22)", type: "info" },
-    { text: "Wazuh Manager: Active (10.10.10.49)", type: "info" },
-    { text: "", type: "info" },
-    { text: "Escribe 'help' para ver la lista de comandos disponibles.", type: "info" },
-    { text: "Utiliza el panel superior para interactuar con los módulos ofensivos.", type: "info" },
-    { text: "========================================================================", type: "system" },
+    { text: "Cargando configuración de red desde el servidor...", type: "info" },
   ]);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -171,8 +165,8 @@ export default function Offensive() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          const kIp = data.kali_ip || "10.10.10.21";
-          const wIp = data.wazuh_ip || "10.10.10.49";
+          const kIp = data.kali_ip || "N/A";
+          const wIp = data.wazuh_ip || "N/A";
           setKaliIp(kIp);
           setWazuhIp(wIp);
           
@@ -356,19 +350,23 @@ export default function Offensive() {
           {/* Info Status en Vivo */}
           <div className="flex flex-wrap gap-2.5 text-[10px]">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-card border border-border/40">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${kaliIp === "cargando..." ? "bg-yellow-500" : (kaliIp === "N/A" || kaliIp === "No configurado" ? "bg-destructive" : "bg-neon-green")}`} />
               <span className="text-muted-foreground">KALI NODE:</span>
-              <span className="text-foreground font-bold">{kaliIp}</span>
+              <span className="text-foreground font-bold uppercase">
+                {kaliIp === "cargando..." ? "CARGANDO..." : (kaliIp === "N/A" || kaliIp === "No configurado" ? "OFFLINE" : "ONLINE")}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-card border border-border/40">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <span className="text-muted-foreground">SSH:</span>
-              <span className="text-foreground font-bold">PORT 22</span>
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${kaliIp === "cargando..." ? "bg-yellow-500" : (kaliIp === "N/A" || kaliIp === "No configurado" ? "bg-destructive" : "bg-neon-green")}`} />
+              <span className="text-muted-foreground">SSH CONECTADO:</span>
+              <span className="text-foreground font-bold uppercase">
+                {kaliIp === "cargando..." ? "VERIFICANDO..." : (kaliIp === "N/A" || kaliIp === "No configurado" ? "DESCONECTADO" : "ONLINE")}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-card border border-border/40">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
-              <span className="text-muted-foreground">WAZUH RULE AGENT:</span>
-              <span className="text-foreground font-bold">ACTIVE</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-neon-green animate-pulse" />
+              <span className="text-muted-foreground">AGENTE WAZUH:</span>
+              <span className="text-foreground font-bold">ACTIVO</span>
             </div>
           </div>
         </div>

@@ -521,244 +521,188 @@ export default function Defensive() {
           </SpotlightCard>
         </div>
 
-        {/* REJILLA BENTO - COMPACTA */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 relative z-10">
-          
-          {/* COLUMNA 1: Agentes y Módulos */}
-          <div className="space-y-6 flex flex-col justify-between">
-            {/* Agentes Wazuh */}
-            <Card className="bg-card/50 border border-border/80 backdrop-blur-xl flex-1 flex flex-col min-h-[220px]">
-              <CardHeader className="border-b border-border/20 pb-3">
-                <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
-                  <Cpu className="w-4 h-4 text-primary" />
-                  Agentes Wazuh Registrados ({agents.length})
-                </CardTitle>
-                <CardDescription className="text-[9px] text-muted-foreground">
-                  Endpoints monitorizados por el Manager.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-3 overflow-y-auto max-h-[160px] flex-1">
-                {agentsError ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-4">
-                    <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
-                    <p className="text-[10px] font-bold text-destructive">{agentsError}</p>
-                  </div>
-                ) : agents.length === 0 ? (
-                  <div className="h-full flex items-center justify-center py-4">
-                    <p className="text-[10px] text-muted-foreground">No se encontraron agentes registrados.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="text-[9px] text-muted-foreground uppercase border-b border-border/20 pb-1">
-                          <th className="py-1">ID</th>
-                          <th className="py-1">Nombre</th>
-                          <th className="py-1">Estado</th>
-                          <th className="py-1">IP</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/20">
-                        {agents.map((agent) => {
-                          const statusStyle = getAgentStatusStyle(agent.status);
-                          const isKali = agent.name.toLowerCase().includes("kali");
-                          return (
-                            <tr key={agent.id} className={`hover:bg-primary/5 transition-colors ${isKali ? "bg-primary/5 font-semibold text-primary" : ""}`}>
-                              <td className="py-1.5 font-mono text-[10px] text-primary/70">{agent.id}</td>
-                              <td className="py-1.5 flex items-center gap-1">
-                                {agent.name}
-                                {isKali && <Badge className="text-[8px] bg-primary/20 text-primary border-primary/30 px-1 py-0 scale-90 pointer-events-none">Kali Agent</Badge>}
-                              </td>
-                              <td className="py-1.5">
-                                <Badge className={`text-[8px] uppercase tracking-wider font-bold ${statusStyle.badgeClass} px-1.5 py-0 pointer-events-none`}>
-                                  <span className={`w-1 h-1 rounded-full mr-1 ${statusStyle.dotClass}`} />
-                                  {statusStyle.label}
-                                </Badge>
-                              </td>
-                              <td className="py-1.5 font-mono text-[10px] text-muted-foreground">{agent.ip || "N/A"}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* MÓDULOS DE SEGURIDAD WAZUH (Estilo Real) */}
-            <Card className="bg-card/50 border border-border/80 backdrop-blur-xl p-5 space-y-6">
-              <div>
-                <h3 className="text-xs text-primary uppercase font-bold tracking-widest flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-primary" />
-                  Wazuh Security Modules
-                  {activeModule && <button onClick={() => setActiveModule(null)} className="ml-auto text-[8px] text-muted-foreground hover:text-primary border border-border/40 rounded px-1.5 py-0.5 uppercase tracking-wider">Quitar filtro</button>}
-                </h3>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Haz clic en un módulo para filtrar las alertas del panel central.</p>
-              </div>
-
-              <div className="space-y-6">
-                {/* ENDPOINT SECURITY */}
-                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
-                    Endpoint Security
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div onClick={() => setActiveModule(activeModule === 'config_assessment' ? null : 'config_assessment')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'config_assessment' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Config Assessment</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Evaluación de hardening y cumplimiento</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'malware_detection' ? null : 'malware_detection')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'malware_detection' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <Bug className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Malware Detection</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Firmas e IOCs de amenazas activas</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'fim' ? null : 'fim')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'fim' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <FileSearch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">File Integrity Monitoring</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Control de cambios en archivos críticos</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* THREAT INTELLIGENCE */}
-                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
-                    Threat Intelligence
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div onClick={() => setActiveModule(activeModule === 'threat_hunting' ? null : 'threat_hunting')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'threat_hunting' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <Crosshair className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Threat Hunting</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Alertas de nivel alto o superior (≥10)</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'vulnerability' ? null : 'vulnerability')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'vulnerability' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <AlertTriangle className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">Vulnerability Detection</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Aplicaciones afectadas por CVEs conocidos</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'mitre' ? null : 'mitre')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'mitre' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <GitBranch className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">MITRE ATT&CK</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Alertas mapeadas a tácticas y técnicas MITRE</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* SECURITY OPERATIONS */}
-                <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#8b949e] uppercase tracking-wider whitespace-nowrap">
-                    Security Operations
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div onClick={() => setActiveModule(activeModule === 'it_hygiene' ? null : 'it_hygiene')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'it_hygiene' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <Activity className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">IT Hygiene</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Procesos, software y configuraciones del sistema</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'pci_dss' ? null : 'pci_dss')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'pci_dss' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <CreditCard className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">PCI DSS</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Cumplimiento del estándar de seguridad de pagos</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'gdpr' ? null : 'gdpr')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 sm:col-span-2 ${activeModule === 'gdpr' ? 'bg-primary/10 border border-primary/30 ring-1 ring-primary/20' : 'hover:bg-[#161b22]'}`}>
-                      <Lock className="w-4 h-4 text-primary shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="font-bold text-[14px] text-[#c9d1d9] leading-tight">GDPR</div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Conformidad con protección de datos personales</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CYBERSHIELD MODULES */}
-                <div className="relative border border-[#3fb950] rounded-lg pt-4 pb-3 px-3">
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#0d1117] px-2 text-[11px] font-bold text-[#3fb950] uppercase tracking-wider whitespace-nowrap">
-                    CyberShield Modules
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div onClick={() => setActiveModule(activeModule === 'cs_lan' ? null : 'cs_lan')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_lan' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
-                      <Network className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield LAN</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
-                            {templates.filter(t => t.module === "LAN").length || 6} reglas
-                          </span>
-                        </div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">MAC Flooding, ARP Spoofing, DHCP · reglas 100500-100505</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'cs_scapy' ? null : 'cs_scapy')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_scapy' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
-                      <Zap className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield Scapy</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
-                            {templates.filter(t => t.module === "SCAPY").length || 4} reglas
-                          </span>
-                        </div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">SYN/ACK/ARP Scan, Fuzzing · reglas 100506-100509</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'cs_brute' ? null : 'cs_brute')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_brute' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
-                      <Key className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield BruteForce</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
-                            {templates.filter(t => t.module === "BF").length || 2} reglas
-                          </span>
-                        </div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Fuerza bruta SSH y Web · reglas 100510-100511</div>
-                      </div>
-                    </div>
-                    <div onClick={() => setActiveModule(activeModule === 'cs_privesc' ? null : 'cs_privesc')} className={`group flex items-start gap-2.5 p-2 rounded-md transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${activeModule === 'cs_privesc' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30 ring-1 ring-[#3fb950]/20' : 'hover:bg-[#161b22]'}`}>
-                      <ArrowUpCircle className="w-4 h-4 text-[#3fb950] shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-[14px] text-[#c9d1d9] leading-tight">CyberShield PrivEsc</span>
-                          <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[8px] font-bold px-1.5 py-0.2 rounded-full whitespace-nowrap uppercase pointer-events-none scale-90">
-                            {templates.filter(t => t.module === "PRIV").length || 2} reglas
-                          </span>
-                        </div>
-                        <div className="text-[12px] text-[#8b949e] leading-snug line-clamp-2 mt-0.5">Escalada local y Kerberos · reglas 100512-100513</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </Card>
+        {/* SECCIÓN HORIZONTAL: MÓDULOS DE SEGURIDAD WAZUH (Estilo Real - Full Width) */}
+        <Card className="bg-card/50 border border-border/80 backdrop-blur-xl p-5 space-y-4 relative z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs text-primary uppercase font-bold tracking-widest flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-primary" />
+                Módulos de Seguridad (Wazuh SIEM)
+              </h3>
+              <p className="text-[9px] text-zinc-400 mt-0.5">Haz clic en un módulo para filtrar los eventos de seguridad del panel inferior.</p>
+            </div>
+            {activeModule && (
+              <button
+                onClick={() => setActiveModule(null)}
+                className="text-[9px] text-muted-foreground hover:text-primary border border-border/40 rounded px-2 py-0.5 uppercase tracking-wider font-mono transition-colors"
+              >
+                [x] Limpiar Filtro
+              </button>
+            )}
           </div>
 
-          {/* COLUMNA 2: CyberShield Alerts Stream - ANCHO 2 COLUMNAS (col-span-2) */}
-          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl xl:col-span-2 flex flex-col min-h-[420px]">
-            <CardHeader className="border-b border-border/20 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "16px" }}>
+            {/* 1. ENDPOINT SECURITY */}
+            <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3 bg-background/25">
+              <div className="absolute top-0 left-4 -translate-y-1/2 bg-[#090f09] px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-wider">
+                Endpoint Security
+              </div>
+              <div className="space-y-2">
+                <div onClick={() => setActiveModule(activeModule === 'config_assessment' ? null : 'config_assessment')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'config_assessment' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <Shield className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">Config Assessment</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Hardening y cumplimiento</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'malware_detection' ? null : 'malware_detection')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'malware_detection' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <Bug className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">Malware Detection</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Firmas e IOCs de amenazas</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'fim' ? null : 'fim')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'fim' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <FileSearch className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">File Integrity Monitoring</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Control de cambios FIM</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. THREAT INTELLIGENCE */}
+            <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3 bg-background/25">
+              <div className="absolute top-0 left-4 -translate-y-1/2 bg-[#090f09] px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-wider">
+                Threat Intelligence
+              </div>
+              <div className="space-y-2">
+                <div onClick={() => setActiveModule(activeModule === 'threat_hunting' ? null : 'threat_hunting')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'threat_hunting' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <Crosshair className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">Threat Hunting</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Búsqueda proactiva (Lvl ≥10)</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'vulnerability' ? null : 'vulnerability')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'vulnerability' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <AlertTriangle className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">Vulnerabilities</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Detección de CVEs activos</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'mitre' ? null : 'mitre')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'mitre' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <GitBranch className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">MITRE ATT&CK</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Mapeado de tácticas y técnicas</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. SECURITY OPERATIONS */}
+            <div className="relative border border-[#30363d] rounded-lg pt-4 pb-3 px-3 bg-background/25">
+              <div className="absolute top-0 left-4 -translate-y-1/2 bg-[#090f09] px-2 text-[9px] font-bold text-[#8b949e] uppercase tracking-wider">
+                Security Operations
+              </div>
+              <div className="space-y-2">
+                <div onClick={() => setActiveModule(activeModule === 'it_hygiene' ? null : 'it_hygiene')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'it_hygiene' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <Activity className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">IT Hygiene</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Procesos e inventario de sistema</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'pci_dss' ? null : 'pci_dss')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'pci_dss' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <CreditCard className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">PCI DSS</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Cumplimiento estándar de pago</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'gdpr' ? null : 'gdpr')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'gdpr' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-[#161b22]'}`}>
+                  <Lock className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-[11px] text-[#c9d1d9] leading-tight">GDPR</div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Protección de datos personales</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. CYBERSHIELD MODULES */}
+            <div className="relative border border-[#3fb950] rounded-lg pt-4 pb-3 px-3 bg-background/25">
+              <div className="absolute top-0 left-4 -translate-y-1/2 bg-[#090f09] px-2 text-[9px] font-bold text-[#3fb950] uppercase tracking-wider">
+                CyberShield Modules
+              </div>
+              <div className="space-y-2">
+                <div onClick={() => setActiveModule(activeModule === 'cs_lan' ? null : 'cs_lan')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'cs_lan' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30' : 'hover:bg-[#161b22]'}`}>
+                  <Network className="w-3.5 h-3.5 text-[#3fb950] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[11px] text-[#c9d1d9] leading-tight">CyberShield LAN</span>
+                      <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[7px] font-bold px-1.5 py-0.2 rounded-full">
+                        {templates.filter(t => t.module === "LAN").length || 6}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">MAC Flood, ARP Spoofing, DHCP</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'cs_scapy' ? null : 'cs_scapy')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'cs_scapy' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30' : 'hover:bg-[#161b22]'}`}>
+                  <Zap className="w-3.5 h-3.5 text-[#3fb950] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[11px] text-[#c9d1d9] leading-tight">CyberShield Scapy</span>
+                      <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[7px] font-bold px-1.5 py-0.2 rounded-full">
+                        {templates.filter(t => t.module === "SCAPY").length || 4}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">SYN/ACK/ARP Scan, Fuzzing</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'cs_brute' ? null : 'cs_brute')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'cs_brute' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30' : 'hover:bg-[#161b22]'}`}>
+                  <Key className="w-3.5 h-3.5 text-[#3fb950] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[11px] text-[#c9d1d9] leading-tight">BruteForce</span>
+                      <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[7px] font-bold px-1.5 py-0.2 rounded-full">
+                        {templates.filter(t => t.module === "BF").length || 2}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Fuerza bruta SSH y Web</div>
+                  </div>
+                </div>
+                <div onClick={() => setActiveModule(activeModule === 'cs_privesc' ? null : 'cs_privesc')} className={`group flex items-start gap-2 p-1.5 rounded transition-all duration-200 cursor-pointer ${activeModule === 'cs_privesc' ? 'bg-[#3fb950]/10 border border-[#3fb950]/30' : 'hover:bg-[#161b22]'}`}>
+                  <ArrowUpCircle className="w-3.5 h-3.5 text-[#3fb950] shrink-0 mt-0.5" />
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[11px] text-[#c9d1d9] leading-tight">PrivEsc</span>
+                      <span className="bg-[#3fb950]/10 text-[#3fb950] border border-[#3fb950]/30 text-[7px] font-bold px-1.5 py-0.2 rounded-full">
+                        {templates.filter(t => t.module === "PRIV").length || 2}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-[#8b949e] leading-tight mt-0.5">Escalada local y Kerberos</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* REJILLA INFERIOR: ALERTAS Y AGENTES ALINEADOS */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "24px" }} className="relative z-10">
+          {/* COLUMNA 1: Consola de Eventos y Detección SIEM (ancho 2/3) */}
+          <Card style={{ gridColumn: "span 2" }} className="bg-card/50 border border-border/80 backdrop-blur-xl flex flex-col h-[340px]">
+            <CardHeader className="border-b border-border/20 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-3">
               <div>
                 <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
                   <ShieldAlert className="w-4 h-4 text-primary" />
                   Consola de Eventos y Detección SIEM
                 </CardTitle>
-                <CardDescription className="text-[9px] text-muted-foreground font-mono">
-                  Visualización interactiva de logs de auditoría, eventos indexados y correlación.
+                <CardDescription className="text-[9px] text-zinc-400 font-mono mt-0.5">
+                  Logs de auditoría, eventos indexados y correlación.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -821,7 +765,7 @@ export default function Defensive() {
                 <button onClick={() => setActiveModule(null)} className="text-[8px] text-muted-foreground hover:text-primary">[x] Quitar</button>
               </div>
             )}
-            <CardContent className="pt-3 overflow-y-auto flex-1 max-h-[360px] p-0 sm:p-4">
+            <CardContent className="pt-2 overflow-y-auto flex-1 max-h-[260px] p-0 sm:px-4 sm:pb-3">
               {alertsError ? (
                 <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-8">
                   <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
@@ -897,6 +841,66 @@ export default function Defensive() {
                                 {detectionLabel}
                               </Badge>
                             </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* COLUMNA 2: Agentes Wazuh Registrados (ancho 1/3) */}
+          <Card className="bg-card/50 border border-border/80 backdrop-blur-xl flex flex-col h-[340px]">
+            <CardHeader className="border-b border-border/20 pb-3 py-3">
+              <CardTitle className="text-xs text-primary flex items-center gap-2 uppercase">
+                <Cpu className="w-4 h-4 text-primary" />
+                Agentes Wazuh Registrados ({agents.length})
+              </CardTitle>
+              <CardDescription className="text-[9px] text-zinc-400">
+                Endpoints monitorizados por el SIEM.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2 overflow-y-auto flex-1 max-h-[260px] px-3 pb-3">
+              {agentsError ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-1 py-4">
+                  <AlertCircle className="w-6 h-6 text-destructive animate-pulse" />
+                  <p className="text-[10px] font-bold text-destructive">{agentsError}</p>
+                </div>
+              ) : agents.length === 0 ? (
+                <div className="h-full flex items-center justify-center py-4">
+                  <p className="text-[10px] text-zinc-400">No se encontraron agentes registrados.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="text-[9px] text-muted-foreground uppercase border-b border-border/20 pb-1 font-bold">
+                        <th className="py-1">ID</th>
+                        <th className="py-1">Nombre</th>
+                        <th className="py-1">Estado</th>
+                        <th className="py-1">IP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/20">
+                      {agents.map((agent) => {
+                        const statusStyle = getAgentStatusStyle(agent.status);
+                        const isKali = agent.name.toLowerCase().includes("kali");
+                        return (
+                          <tr key={agent.id} className={`hover:bg-primary/5 transition-colors ${isKali ? "bg-primary/5 font-semibold text-primary" : ""}`}>
+                            <td className="py-1.5 font-mono text-[10px] text-primary/70">{agent.id}</td>
+                            <td className="py-1.5 flex items-center gap-1">
+                              {agent.name}
+                              {isKali && <Badge className="text-[8px] bg-primary/20 text-primary border-primary/30 px-1 py-0 scale-90 pointer-events-none">Kali</Badge>}
+                            </td>
+                            <td className="py-1.5">
+                              <Badge className={`text-[8px] uppercase tracking-wider font-bold ${statusStyle.badgeClass} px-1.5 py-0 pointer-events-none`}>
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1 ${statusStyle.dotClass}`} />
+                                {statusStyle.label}
+                              </Badge>
+                            </td>
+                            <td className="py-1.5 font-mono text-[10px] text-muted-foreground">{agent.ip || "N/A"}</td>
                           </tr>
                         );
                       })}

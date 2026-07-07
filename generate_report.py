@@ -72,7 +72,7 @@ FALLBACK_ATTACKS = {
         "mitre_id": "T1557",
         "wazuh_rule_id": "100500",
         "risk_level": "HIGH",
-        "description": "Satura la tabla CAM del switch enviando direcciones MAC falsificadas para forzar el modo hub y exponer el tráfico de red completo del segmento.",
+        "description": "Satura la tabla CAM del switch enviando MACs falsas para forzar modo hub y exponer el tráfico de red completo del segmento.",
         "command": "sudo macof -i eth0 -n 5000",
         "recommendations": [
             "1. Activar Port Security en los switches para limitar las direcciones MAC permitidas por puerto.",
@@ -85,8 +85,8 @@ FALLBACK_ATTACKS = {
         "mitre_id": "T1557",
         "wazuh_rule_id": "100501",
         "risk_level": "HIGH",
-        "description": "Fuerza al switch a asociar la dirección MAC del host víctima con el puerto del atacante mediante tramas ARP rápidas y repetitivas.",
-        "command": "sudo arpspoof -i eth0 -t 192.168.1.50 192.168.1.1",
+        "description": "Roba el puerto del switch de un host específico enviando tramas ARP falsificadas con su MAC, redirigiendo su tráfico al atacante de forma quirúrgica.",
+        "command": "sudo arpspoof -i eth0 192.168.1.50",
         "recommendations": [
             "1. Implementar Port Security estricto vinculando las direcciones MAC conocidas a puertos especificos.",
             "2. Habilitar mecanismos de monitorizacion de puertos para detectar cambios rapidos de MAC en un mismo puerto.",
@@ -107,51 +107,64 @@ FALLBACK_ATTACKS = {
         ]
     },
     "LAN4": {
-        "name": "Tuneles / Canales Encubiertos",
+        "name": "Túneles / Canales Encubiertos",
         "mitre_id": "T1048",
         "wazuh_rule_id": "100503",
         "risk_level": "HIGH",
-        "description": "Establece un canal de comunicación oculto encapsulando datos en peticiones ICMP para evadir las restricciones estándar del firewall.",
-        "command": "sudo ptunnel -p 192.168.1.50 -lp 8000 -da 10.10.10.21 -dp 80",
+        "description": "Simula exfiltración de datos inyectando una firma en paquetes ICMP hacia el objetivo sin necesidad de servidor externo.",
+        "command": "sudo nping --icmp --data-string 'exfiltration_test' 192.168.1.1",
         "recommendations": [
             "1. Configurar firewalls de inspeccion profunda de paquetes (DPI) para bloquear trafico ICMP anomalo.",
             "2. Limitar el tamano de los payloads de respuesta ICMP echo-request y echo-reply a nivel de red.",
             "3. Monitorizar la frecuencia y volumen del trafico DNS e ICMP hacia IPs externas."
         ]
     },
-    "LAN5": {
-        "name": "Inyeccion de Paquetes ARP",
+    "LAN5A": {
+        "name": "ARP Spoofing -- Inyección de tráfico",
         "mitre_id": "T1557",
         "wazuh_rule_id": "100504",
         "risk_level": "HIGH",
-        "description": "Inyecta tramas ARP personalizadas en el segmento de red para sondear o alterar la correspondencia de direcciones IP y MAC en los hosts.",
-        "command": "sudo tcpreplay -i eth0 /tmp/arp_packets.pcap",
+        "description": "Inyecta respuestas ARP falsas envenenando la caché del host víctima sin interceptar tráfico (fase de preparación MitM).",
+        "command": "sudo arpspoof -i eth0 192.168.1.50",
         "recommendations": [
             "1. Habilitar Dynamic ARP Inspection (DAI) en los switches Capa 2 para validar tramas ARP contra la tabla DHCP Snooping.",
             "2. Configurar tablas ARP estaticas para servidores y dispositivos de infraestructura criticos.",
             "3. Implementar alertas en el SIEM para detectar picos inusuales de trafico ARP de tipo broadcast."
         ]
     },
-    "LAN6": {
-        "name": "ARP Spoofing MitM",
+    "LAN5B": {
+        "name": "ARP Spoofing -- Man in the Middle",
         "mitre_id": "T1557",
         "wazuh_rule_id": "100504",
-        "risk_level": "HIGH",
-        "description": "Envenena las tablas ARP de la víctima y de la puerta de enlace para posicionarse en medio de la comunicación y capturar o alterar el tráfico.",
-        "command": "sudo arpspoof -i eth0 -t 192.168.1.50 -r 192.168.1.1",
+        "risk_level": "CRITICAL",
+        "description": "Intercepta tráfico entre víctima y gateway activando IP forwarding para MitM silencioso bidireccional.",
+        "command": "sudo arpspoof -i eth0 -t 192.168.1.50 192.168.1.1",
         "recommendations": [
             "1. Activar Dynamic ARP Inspection (DAI) y DHCP Snooping en los switches de acceso de la red.",
             "2. Utilizar herramientas de monitorizacion de red (como arpwatch o el agente Wazuh) para alertar sobre cambios de MAC de la puerta de enlace.",
             "3. Forzar politicas de red para usar cifrado de capa de transporte (HTTPS, SSH, SFTP)."
         ]
     },
+    "LAN6": {
+        "name": "DHCP Starvation / Rogue DHCP",
+        "mitre_id": "T1498",
+        "wazuh_rule_id": "100505",
+        "risk_level": "CRITICAL",
+        "description": "Agota el pool DHCP del segmento solicitando todas las IPs disponibles y permite desplegar un servidor DHCP falso.",
+        "command": "sudo yersinia dhcp -G -i eth0",
+        "recommendations": [
+            "1. Habilitar DHCP Snooping en los switches para definir puertos confiables (trust) y no confiables (untrust).",
+            "2. Configurar limites en la tasa de paquetes DHCP (rate limit) por puerto para mitigar ataques de agotamiento.",
+            "3. Bloquear trafico DHCP proveniente de puertos que no pertenezcan a los servidores autorizados."
+        ]
+    },
     "SCAPY1": {
-        "name": "SYN Stealth Scan",
+        "name": "Scapy SYN Scan",
         "mitre_id": "T1046",
         "wazuh_rule_id": "100506",
         "risk_level": "MEDIUM",
-        "description": "Realiza un escaneo sigiloso enviando paquetes SYN sin completar el saludo de tres vías para identificar puertos abiertos sin levantar sospechas.",
-        "command": "sudo python3 scapy_scan.py --syn -t 192.168.1.50",
+        "description": "Escaneo sigiloso Half-Open (SYN) usando Scapy para detectar puertos abiertos sin completar el handshake TCP.",
+        "command": "sudo python3 -c \"from scapy.all import *; sr1(IP(dst='192.168.1.1')/TCP(dport=80,flags='S'))\"",
         "recommendations": [
             "1. Configurar el firewall (iptables/firewalld) para bloquear escaneos de red rapidos o sigilosos.",
             "2. Habilitar modulos de rate-limiting (como hashlimit) en las reglas del firewall para paquetes SYN.",
@@ -159,12 +172,12 @@ FALLBACK_ATTACKS = {
         ]
     },
     "SCAPY2": {
-        "name": "ACK Scan (Firewall Evasion)",
+        "name": "Scapy ACK Scan",
         "mitre_id": "T1046",
         "wazuh_rule_id": "100507",
         "risk_level": "MEDIUM",
-        "description": "Envía paquetes TCP con el flag ACK para mapear las reglas del firewall y determinar si es de estado o si los puertos están filtrados.",
-        "command": "sudo python3 scapy_scan.py --ack -t 192.168.1.50",
+        "description": "Escaneo ACK para detectar si un puerto está filtrado por firewall stateful. RST = no filtrado, sin respuesta = filtrado.",
+        "command": "sudo python3 -c \"from scapy.all import *; sr1(IP(dst='192.168.1.1')/TCP(dport=80,flags='A'))\"",
         "recommendations": [
             "1. Implementar firewalls de estado (Stateful Firewalls) que descarten paquetes ACK que no pertenecen a conexiones activas.",
             "2. Configurar el SIEM para correlacionar multiples paquetes de sondeo ACK provenientes del mismo origen.",
@@ -172,12 +185,12 @@ FALLBACK_ATTACKS = {
         ]
     },
     "SCAPY3": {
-        "name": "ARP Discovery Scan",
+        "name": "Scapy ARP Scan",
         "mitre_id": "T1018",
         "wazuh_rule_id": "100508",
         "risk_level": "LOW",
-        "description": "Envía solicitudes ARP de broadcast para mapear rápidamente todos los dispositivos activos en el segmento de red local.",
-        "command": "sudo python3 scapy_scan.py --arp -t 192.168.1.0/24",
+        "description": "Escaneo de descubrimiento ARP en la subred local para identificar hosts activos en Capa 2.",
+        "command": "sudo python3 -c \"from scapy.all import *; arping('192.168.1.0/24')\"",
         "recommendations": [
             "1. Aislar los segmentos de red mediante VLANs independientes para mitigar el descubrimiento de dispositivos.",
             "2. Limitar las respuestas ARP no solicitadas o inusuales dentro del segmento local.",
@@ -185,12 +198,12 @@ FALLBACK_ATTACKS = {
         ]
     },
     "SCAPY4": {
-        "name": "Protocol Fuzzing",
+        "name": "Scapy Fuzzing (ICMP/TCP)",
         "mitre_id": "T1498",
         "wazuh_rule_id": "100509",
         "risk_level": "HIGH",
-        "description": "Envía paquetes malformados de diferentes protocolos para evaluar la robustez de las pilas de red de los hosts y buscar fallos de denegación de servicio.",
-        "command": "sudo python3 scapy_fuzz.py -t 192.168.1.50 --proto udp",
+        "description": "Inyecta paquetes ICMP malformados generados aleatoriamente para probar la robustez del stack de red del objetivo.",
+        "command": "sudo python3 -c \"from scapy.all import *; send(fuzz(IP(dst='192.168.1.1')/ICMP()),count=100)\"",
         "recommendations": [
             "1. Aplicar los parches de seguridad y actualizaciones del sistema operativo mas recientes para corregir fallos de desbordamiento de pila.",
             "2. Validar exhaustivamente las entradas y tamano de payloads en los servicios de red expuestos.",
@@ -198,12 +211,12 @@ FALLBACK_ATTACKS = {
         ]
     },
     "BF1": {
-        "name": "Fuerza Bruta SSH",
+        "name": "Fuerza Bruta SSH (Medusa)",
         "mitre_id": "T1110",
         "wazuh_rule_id": "100510",
         "risk_level": "HIGH",
-        "description": "Intenta adivinar las credenciales de acceso SSH de un usuario realizando múltiples intentos con un diccionario de contraseñas.",
-        "command": "hydra -l root -P /usr/share/wordlists/rockyou.txt ssh://192.168.1.50",
+        "description": "Ataque de fuerza bruta contra servicio SSH usando diccionario rockyou.txt con Medusa.",
+        "command": "sudo medusa -h 192.168.1.50 -u root -P /usr/share/wordlists/rockyou.txt -M ssh",
         "recommendations": [
             "1. Deshabilitar el acceso root directo mediante SSH (PermitRootLogin no en /etc/ssh/sshd_config).",
             "2. Forzar la autenticacion mediante llaves criptograficas publicas/privadas y desactivar el acceso por contrasena.",
@@ -211,38 +224,38 @@ FALLBACK_ATTACKS = {
         ]
     },
     "BF2": {
-        "name": "Fuerza Bruta Web",
+        "name": "Fuerza Bruta Web (Hydra)",
         "mitre_id": "T1110",
         "wazuh_rule_id": "100511",
         "risk_level": "HIGH",
-        "description": "Realiza intentos de autenticación masivos contra el portal de login web utilizando diccionarios de usuarios y contraseñas comunes.",
-        "command": "hydra -l admin -P /usr/share/wordlists/rockyou.txt 192.168.1.50 http-post-form \"/login:user=^USER^&pass=^PASS^:Error\"",
+        "description": "Ataque de fuerza bruta contra formulario web HTTP usando diccionario rockyou.txt con Hydra.",
+        "command": "sudo hydra -l admin -P /usr/share/wordlists/rockyou.txt 192.168.1.50 http-post-form '/login:username=^USER^&password=^PASS^:Invalid'",
         "recommendations": [
             "1. Implementar sistemas de bloqueo de cuentas de usuario tras X intentos fallidos consecutivos (politicas de bloqueo).",
             "2. Incorporar mecanismos de validacion humana como CAPTCHA en los formularios de autenticacion.",
             "3. Habilitar doble factor de autenticacion (2FA) para el acceso a las cuentas administrativas."
         ]
     },
-    "LIN1": {
+    "PRIV1": {
         "name": "Escalada de Privilegios Local",
         "mitre_id": "T1548",
         "wazuh_rule_id": "100512",
-        "risk_level": "HIGH",
-        "description": "Busca archivos con bits SUID/SGID, tareas programadas inseguras o configuraciones sudo laxas para elevar privilegios a root.",
-        "command": "find / -perm -4000 -type f 2>/dev/null",
+        "risk_level": "CRITICAL",
+        "description": "Enumera vectores de escalada de privilegios local: binarios SUID, permisos sudo y tareas cron programadas.",
+        "command": "sudo sh -c 'echo \"=== SUID ===\" && find / -perm -4000 2>/dev/null && echo \"=== SUDO ===\" && sudo -l 2>/dev/null && echo \"=== CRON ===\" && cat /etc/crontab 2>/dev/null'",
         "recommendations": [
             "1. Auditar periodicamente todos los archivos del sistema que tengan activos los bits SUID/SGID y eliminar permisos innecesarios.",
             "2. Restringir los permisos de ejecucion sobre compiladores locales (como gcc, clang) para usuarios no administradores.",
             "3. Endurecer la configuracion del archivo /etc/sudoers evitando directivas NOPASSWD genericas."
         ]
     },
-    "PRIV1": {
-        "name": "Kerberos ASREPRoast",
+    "PRIV2": {
+        "name": "Escalada de Dominio (Kerberos ASREPRoast)",
         "mitre_id": "T1558",
         "wazuh_rule_id": "100513",
-        "risk_level": "HIGH",
-        "description": "Realiza peticiones AS-REQ de cuentas de usuario sin preautenticación requerida para obtener respuestas cifradas y descifrarlas sin conexión.",
-        "command": "GetNPUsers.py -dc-ip 192.168.1.50 -request cybershield.local/",
+        "risk_level": "CRITICAL",
+        "description": "Enumera usuarios de Active Directory con kerbrute y extrae hashes Kerberos AS-REP para cracking offline.",
+        "command": "sudo sh -c 'kerbrute userenum --dc 10.10.10.100 -d corp.local /usr/share/wordlists/usernames.txt && impacket-GetNPUsers corp.local/ -dc-ip 10.10.10.100 -no-pass'",
         "recommendations": [
             "1. Desactivar la directiva 'Do not require Kerberos preauthentication' para todas las cuentas de usuario de Active Directory.",
             "2. Utilizar contrasenas de gran longitud y complejidad para cuentas de servicio susceptibles a ataques offline.",
@@ -360,6 +373,9 @@ def main():
         topMargin=70,
         bottomMargin=70
     )
+    doc.title = f"Reporte de Seguridad - {nombre}"
+    doc.author = "CyberShield Security"
+    doc.subject = f"Auditoria de {nombre} para {empresa}"
 
     styles = getSampleStyleSheet()
     
