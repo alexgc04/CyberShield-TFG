@@ -723,25 +723,31 @@ app.get("/api/health", async (req, res) => {
     results.n8n = r.ok;
   } catch { results.n8n = false; }
 
-  try {
-    if (!process.env.SSH_HOST) {
-      results.kali = false;
-    } else {
-      const conn = new Client();
-      results.kali = await new Promise((resolve) => {
-        const timer = setTimeout(() => { conn.end(); resolve(false); }, 3000);
-        conn.on('ready', () => { clearTimeout(timer); conn.end(); resolve(true); })
-            .on('error', () => { clearTimeout(timer); resolve(false); })
-            .connect({
-              host: process.env.SSH_HOST,
-              port: process.env.SSH_PORT || 22,
-              username: process.env.SSH_USER,
-              password: process.env.SSH_PASS,
-              readyTimeout: 3000
-            });
-      });
-    }
-  } catch { results.kali = false; }
+  // En producción (Render), Kali no es accesible por SSH directo desde la nube.
+  // n8n es la pasarela SSH a Kali: si n8n está online, Kali también lo está.
+  if (process.env.NODE_ENV === 'production') {
+    results.kali = results.n8n;
+  } else {
+    try {
+      if (!process.env.SSH_HOST) {
+        results.kali = false;
+      } else {
+        const conn = new Client();
+        results.kali = await new Promise((resolve) => {
+          const timer = setTimeout(() => { conn.end(); resolve(false); }, 3000);
+          conn.on('ready', () => { clearTimeout(timer); conn.end(); resolve(true); })
+              .on('error', () => { clearTimeout(timer); resolve(false); })
+              .connect({
+                host: process.env.SSH_HOST,
+                port: process.env.SSH_PORT || 22,
+                username: process.env.SSH_USER,
+                password: process.env.SSH_PASS,
+                readyTimeout: 3000
+              });
+        });
+      }
+    } catch { results.kali = false; }
+  }
 
   try {
     const wazuhHost = process.env.WAZUH_HOST || '10.10.10.49';
