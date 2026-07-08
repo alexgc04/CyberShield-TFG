@@ -719,7 +719,7 @@ app.get("/api/health", async (req, res) => {
     if (baseN8nUrl.includes('/webhook')) {
       baseN8nUrl = baseN8nUrl.split('/webhook')[0];
     }
-    const r = await fetch(baseN8nUrl + '/healthz', { signal: AbortSignal.timeout(3000) });
+    const r = await fetch(baseN8nUrl + '/healthz', { signal: AbortSignal.timeout(3000), headers: { 'Bypass-Tunnel-Reminder': 'true' } });
     results.n8n = r.ok;
   } catch { results.n8n = false; }
 
@@ -1647,7 +1647,7 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
     try {
       n8nResponse = await fetch(n8nUrl + '/webhook/attack-execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
         body: JSON.stringify({
           attack_id,
           attack_name: template.name,
