@@ -1573,8 +1573,15 @@ app.post("/api/attacks/log", async (req, res) => {
   try {
     const db = mongoose.connection.db;
     const logsCol = db.collection('attack_logs');
+    const exitCode = req.body.ssh_exit_code !== undefined ? req.body.ssh_exit_code : (req.body.exit_code !== undefined ? req.body.exit_code : 0);
+    const targetIp = req.body.target_ip || req.body.parameters?.target_ip || req.body.parameters?.ip_victima || req.body.parameters?.target || '127.0.0.1';
+    const status = req.body.status || (exitCode === 0 ? 'completed' : 'failed');
+
     const logEntry = {
       ...req.body,
+      target_ip: targetIp,
+      status: status,
+      ssh_exit_code: exitCode,
       timestamp: new Date()
     };
     await logsCol.insertOne(logEntry);
@@ -1690,6 +1697,10 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
     try {
       const db = mongoose.connection.db;
       const logsCol = db.collection('attack_logs');
+      const exitCode = data.ssh_exit_code !== undefined ? data.ssh_exit_code : (data.exit_code !== undefined ? data.exit_code : 0);
+      const targetIp = params.target_ip || params.ip_victima || params.target || params.ip || '127.0.0.1';
+      const status = exitCode === 0 ? 'completed' : 'failed';
+
       await logsCol.insertOne({
         attack_id,
         attack_name: template.name,
@@ -1700,8 +1711,10 @@ app.post("/api/attacks/execute", verifyToken, attackLimiter, async (req, res) =>
         description: template.description,
         command: finalCommand,
         parameters: params,
+        target_ip: targetIp,
+        status: status,
         company_name: company_name || 'Empresa Auditada',
-        ssh_exit_code: data.ssh_exit_code !== undefined ? data.ssh_exit_code : (data.exit_code !== undefined ? data.exit_code : 0),
+        ssh_exit_code: exitCode,
         report_id: data.report_id || reportId,
         pdf_url: data.pdf_url,
         timestamp: new Date()
